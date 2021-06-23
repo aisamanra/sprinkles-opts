@@ -110,5 +110,36 @@ module Sprinkles
       assert_equal(99, opts.opt_integer)
       assert_equal(100, opts.def_integer)
     end
+
+    def test_disallow_leading_short_hyphens
+      msg = assert_raises(RuntimeError) do
+        Class.new(S::Opts::GetOpt) do
+          T.unsafe(self).const(:foo, String, short: "-f")
+        end
+      end
+      msg = T.cast(msg, RuntimeError)
+      assert(msg.message.include?("Do not start options with -"))
+    end
+
+    def test_disallow_leading_long_hyphens
+      msg = assert_raises(RuntimeError) do
+        Class.new(S::Opts::GetOpt) do
+          T.unsafe(self).const(:foo, String, long: "--foo")
+        end
+      end
+      msg = T.cast(msg, RuntimeError)
+      assert(msg.message.include?("Do not start options with -"))
+    end
+
+    def test_disallow_help
+      msg = assert_raises(RuntimeError) do
+        Class.new(S::Opts::GetOpt) do
+          T.unsafe(self).const(:foo, String, short: "h")
+        end
+      end
+      msg = T.cast(msg, RuntimeError)
+      assert(msg.message.include?('The options `-h` and `--help` are reserved'))
+    end
+
   end
 end

@@ -82,7 +82,7 @@ module S::Opts
 
       # we don't want to let the user pass in nil explicitly, so the
       # default values here are all '' instead, but we will treat ''
-      # as invalid
+      # as if the argument was not provided
       short = nil if short.empty?
       long = nil if long.empty?
       if short.nil? && long.nil?
