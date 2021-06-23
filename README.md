@@ -55,4 +55,4 @@ Individual fields can customize their default placeholder text away from the def
 
 ## Why sprinkles?
 
-Well, for one, because it's a sorbet topping. For another, it corresponds to `S::`, another terse namespace can be analogous to Sorbet's `T::`, while never conflicting with anything that Sorbet will ever
+Well, for one, because it's a sorbet topping. For another, it corresponds to `S::`, another terse namespace can be analogous to Sorbet's `T::`, while never conflicting with anything that Sorbet might add in the future.
