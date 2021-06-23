@@ -1,0 +1,28 @@
+PATH
+  remote: .
+  specs:
+    sprinkles-opts (0.1.0)
+      sorbet-runtime
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    minitest (5.14.4)
+    rake (10.5.0)
+    sorbet (0.5.6346)
+      sorbet-static (= 0.5.6346)
+    sorbet-runtime (0.5.6433)
+    sorbet-static (0.5.6346-universal-darwin-14)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  bundler (~> 1.17)
+  minitest (~> 5.0)
+  rake (~> 10.0)
+  sorbet
+  sprinkles-opts!
+
+BUNDLED WITH
+   1.17.2
