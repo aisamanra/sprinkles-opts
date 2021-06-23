@@ -84,6 +84,9 @@ module S::Opts
       # as invalid
       short = nil if short.empty?
       long = nil if long.empty?
+      if short.nil? && long.nil?
+        raise "You must define at least one `short:` or `long:` option for #{name}"
+      end
       placeholder = nil if placeholder.empty?
       fields[name] = Option.new(
         type: type,
