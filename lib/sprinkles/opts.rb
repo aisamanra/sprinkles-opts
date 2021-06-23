@@ -72,7 +72,8 @@ module S::Opts
           description: '',
           without_accessors: true
         )
-      raise "Do not use " if short.start_with?('-')
+      raise "Do not start options with -" if short.start_with?('-')
+      raise "Do not start options with -" if long.start_with?('-')
       if short == 'h' or long == 'help'
         raise <<~RB
           The options `-h` and `--help` are reserved by S::Opts::GetOpt
