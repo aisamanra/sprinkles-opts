@@ -35,6 +35,12 @@ module Sprinkles::Opts
 
       sig { returns(String) }
       def get_placeholder
+        if type.is_a?(Class) && type < T::Enum
+          # if the type is an enum, we can enumerate the possible
+          # values in a rich way
+          possible_values = type.values.map(&:serialize).join("|")
+          return "[#{possible_values}]"
+        end
         placeholder || 'VALUE'
       end
     end

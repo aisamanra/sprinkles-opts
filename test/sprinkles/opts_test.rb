@@ -130,6 +130,18 @@ module Sprinkles
       const :value, MyEnum, long: "value"
     end
 
+    def test_usage_string_for_enums
+      out_buf = StringIO.new
+      begin
+        $stdout = out_buf
+        OptsWithEnum.parse(['--help'])
+        $stdout = STDOUT
+      rescue SystemExit
+        help_text = out_buf.string
+        assert(help_text.include?('--value=[one|two]'))
+      end
+    end
+
     def test_enum_values
       opts = OptsWithEnum.parse(%w[--value=one])
       assert_equal(MyEnum::One, opts.value)
