@@ -152,6 +152,7 @@ module Sprinkles
       msg = assert_raises(KeyError) do
         opts = OptsWithEnum.parse(%w[--value=seventeen])
       end
+      msg = T.cast(msg, KeyError)
       assert(msg.message.include?('key not found: "seventeen"'))
     end
 
