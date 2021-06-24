@@ -116,6 +116,46 @@ module Sprinkles
       assert_equal(100, opts.def_integer)
     end
 
+    class MyEnum < T::Enum
+      enums do
+        One = new('one')
+        Two = new('two')
+      end
+    end
+
+    class OptsWithEnum < Sprinkles::Opts::GetOpt
+      sig { override.returns(String) }
+      def self.program_name; "opts-with-enum"; end
+
+      const :value, MyEnum, long: "value"
+    end
+
+    def test_usage_string_for_enums
+      out_buf = StringIO.new
+      begin
+        $stdout = out_buf
+        OptsWithEnum.parse(['--help'])
+        $stdout = STDOUT
+      rescue SystemExit
+        help_text = out_buf.string
+        assert(help_text.include?('--value=[one|two]'))
+      end
+    end
+
+    def test_enum_values
+      opts = OptsWithEnum.parse(%w[--value=one])
+      assert_equal(MyEnum::One, opts.value)
+
+      opts = OptsWithEnum.parse(%w[--value=two])
+      assert_equal(MyEnum::Two, opts.value)
+
+      msg = assert_raises(KeyError) do
+        opts = OptsWithEnum.parse(%w[--value=seventeen])
+      end
+      msg = T.cast(msg, KeyError)
+      assert(msg.message.include?('key not found: "seventeen"'))
+    end
+
     def test_disallow_leading_short_hyphens
       msg = assert_raises(RuntimeError) do
         Class.new(Sprinkles::Opts::GetOpt) do
