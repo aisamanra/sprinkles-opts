@@ -171,8 +171,8 @@ module Sprinkles::Opts
             args << "-#{o.short}" if o.short
             args << "--[no-]#{o.long}" if o.long
           else
-            args << "-#{o.short}#{o.get_placeholder}"
-            args << "--#{o.long}=#{o.get_placeholder}"
+            args << "-#{o.short}#{o.get_placeholder}" if o.short
+            args << "--#{o.long}=#{o.get_placeholder}" if o.long
           end
           args << o.description if o.description
           opts.on(*args) do |v|
