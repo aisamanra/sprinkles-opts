@@ -5,10 +5,10 @@ argument parsing.
 
 ## Basic Usage
 
-Create a class that is a subclass of `S::Opts::GetOpt`. Define fields and their types with `const`, analogously to [how you would with `T::Struct`](), but give those fields either `short:` or `long:` options, or possibly both, which correspond to the command-line flags. You'll also have to provide a value for `program_name` by overriding an abstract method:
+Create a class that is a subclass of `Spinkles::Opts::GetOpt`. Define fields and their types with `const`, analogously to [how you would with `T::Struct`](), but give those fields either `short:` or `long:` options, or possibly both, which correspond to the command-line flags. You'll also have to provide a value for `program_name` by overriding an abstract method:
 
 ```ruby
-class MyOptions < S::Opts::GetOpt
+class MyOptions < Sprinkles::Opts::GetOpt
   sig {override.returns(String)}
   def self.program_name; "my-program"; end
 
@@ -55,4 +55,4 @@ Individual fields can customize their default placeholder text away from the def
 
 ## Why sprinkles?
 
-Well, for one, because it's a sorbet topping. For another, it corresponds to `S::`, another terse namespace can be analogous to Sorbet's `T::`, while never conflicting with anything that Sorbet might add in the future.
+Well, because it's a Sorbet topping. I have other unfinished ideas for how to leverage Sorbet to write certain abstractions, and my thought was that it might be nice to put them in a common namespace.
