@@ -82,7 +82,7 @@ module Sprinkles::Opts
         RB
       end
       if !valid_type?(type)
-        raise "#{type} is not a valid parameter type"
+        raise "`#{type}` is not a valid parameter type"
       end
 
       # we don't want to let the user pass in nil explicitly, so the

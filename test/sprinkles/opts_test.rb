@@ -145,5 +145,15 @@ module Sprinkles
       msg = T.cast(msg, RuntimeError)
       assert(msg.message.include?('The options `-h` and `--help` are reserved'))
     end
+
+    def test_disallow_bad_types
+      msg = assert_raises(RuntimeError) do
+        Class.new(Sprinkles::Opts::GetOpt) do
+          T.unsafe(self).const(:foo, Proc, long: 'foo')
+        end
+      end
+      msg = T.cast(msg, RuntimeError)
+      assert_equal('`Proc` is not a valid parameter type', msg.message)
+    end
   end
 end
