@@ -110,6 +110,8 @@ module Sprinkles::Opts
       type = type.raw_type if type.is_a?(T::Types::Simple)
       # true if the type is one of the valid types
       return true if type == String || type == Symbol || type == Integer || type == Float || type == T::Boolean
+      # allow enumeration types
+      return true if type.is_a?(Class) && type < T::Enum
       # true if it's a nilable valid type
       if type.is_a?(T::Types::Union)
         other_types = type.types.to_set - [T::Utils.coerce(NilClass)]
@@ -132,6 +134,8 @@ module Sprinkles::Opts
         raise 'TODO: generic union types' if possible_types.size > 1
 
         convert_str(value, possible_types.first)
+      elsif type.is_a?(Class) && type < T::Enum
+        type.deserialize(value)
       elsif type == String
         value
       elsif type == Symbol
@@ -176,7 +180,8 @@ module Sprinkles::Opts
         if opts.type == T::Boolean
           o.define_singleton_method(name) { !!values.fetch(name, false) }
         elsif values.include?(name)
-          o.define_singleton_method(name) { Sprinkles::Opts::GetOpt.convert_str(values.fetch(name), opts.type) }
+          v = Sprinkles::Opts::GetOpt.convert_str(values.fetch(name), opts.type)
+          o.define_singleton_method(name) { v }
         elsif !opts.factory.nil?
           v = T.must(opts.factory).call
           o.define_singleton_method(name) { v }
