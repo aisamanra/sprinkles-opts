@@ -81,13 +81,18 @@ module Sprinkles::Opts
           The options `-h` and `--help` are reserved by Sprinkles::Opts::GetOpt
         RB
       end
+      if !valid_type?(type)
+        raise "#{type} is not a valid parameter type"
+      end
 
       # we don't want to let the user pass in nil explicitly, so the
       # default values here are all '' instead, but we will treat ''
       # as if the argument was not provided
       short = nil if short.empty?
       long = nil if long.empty?
-      raise "You must define at least one `short:` or `long:` option for #{name}" if short.nil? && long.nil?
+      raise <<~RB if short.nil? && long.nil?
+        You must define at least one `short:` or `long:` option for #{name}
+      RB
 
       placeholder = nil if placeholder.empty?
       fields[name] = Option.new(
@@ -98,6 +103,22 @@ module Sprinkles::Opts
         placeholder: placeholder,
         description: description
       )
+    end
+
+    sig { params(type: T.untyped).returns(T::Boolean) }
+    def self.valid_type?(type)
+      type = type.raw_type if type.is_a?(T::Types::Simple)
+      # true if the type is one of the valid types
+      return true if type == String || type == Symbol || type == Integer || type == Float || type == T::Boolean
+      # true if it's a nilable valid type
+      if type.is_a?(T::Types::Union)
+        other_types = type.types.to_set - [T::Utils.coerce(NilClass)]
+        return false if other_types.size > 1
+        return valid_type?(other_types.first)
+      end
+
+      # otherwise we probably don't handle it
+      false
     end
 
     sig { params(value: String, type: T.untyped).returns(T.untyped) }
