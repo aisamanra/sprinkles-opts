@@ -44,6 +44,20 @@ module Sprinkles::Opts
         end
         placeholder || 'VALUE'
       end
+
+      sig { returns(T::Array[String]) }
+      def optparse_args
+        args = []
+        if type == T::Boolean
+          args << "-#{short}" if short
+          args << "--[no-]#{long}" if long
+        else
+          args << "-#{short}#{get_placeholder}" if short
+          args << "--#{long}=#{get_placeholder}" if long
+        end
+        args << description if description
+        args
+      end
     end
 
     # for appeasing Sorbet, even though this isn't how we're using the
@@ -99,6 +113,7 @@ module Sprinkles::Opts
       long = nil if long.empty?
 
       placeholder = nil if placeholder.empty?
+
       fields << Option.new(
         name: name,
         type: type,
@@ -111,7 +126,7 @@ module Sprinkles::Opts
     end
 
     sig { params(type: T.untyped).returns(T::Boolean) }
-    def self.valid_type?(type)
+    private_class_method def self.valid_type?(type)
       type = type.raw_type if type.is_a?(T::Types::Simple)
       # true if the type is one of the valid types
       return true if type == String || type == Symbol || type == Integer || type == Float || type == T::Boolean
@@ -165,16 +180,7 @@ module Sprinkles::Opts
         end
 
         fields.each do |field|
-          args = []
-          if field.type == T::Boolean
-            args << "-#{field.short}" if field.short
-            args << "--[no-]#{field.long}" if field.long
-          else
-            args << "-#{field.short}#{field.get_placeholder}" if field.short
-            args << "--#{field.long}=#{field.get_placeholder}" if field.long
-          end
-          args << field.description if field.description
-          opts.on(*args) do |v|
+          opts.on(*field.optparse_args) do |v|
             values[field.name] = v
           end
         end
