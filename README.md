@@ -5,7 +5,7 @@ argument parsing.
 
 ## Basic Usage
 
-Create a class that is a subclass of `Spinkles::Opts::GetOpt`. Define fields and their types with `const`, analogously to [how you would with `T::Struct`](), but give those fields either `short:` or `long:` options, or possibly both, which correspond to the command-line flags. You'll also have to provide a value for `program_name` by overriding an abstract method:
+Create a class that is a subclass of `Spinkles::Opts::GetOpt`. Define fields and their types with `const`, analogously to [how you would with `T::Struct`](), but those fields can have `short:` and `long:` options that map to the flags used to provide them. You'll also have to provide a value for `program_name` by overriding an abstract method:
 
 ```ruby
 class MyOptions < Sprinkles::Opts::GetOpt
@@ -29,7 +29,31 @@ assert_equal(true, opts.verbose)
 
 The field type will affect the behavior of the option parser. Fields whose type is `T::Boolean` are implicitly treated as flags that do not take more arguments, and a `T::Boolean` field with a long argument name like `--foo` will also automatically get a corresponding `--no-foo` which sets the flag to false. Values with other built-in types like `Symbol` or `Integer` will be converted to the appropriate type.
 
-Every field needs at least a `short:` or a `long:` name, but it's not necessary to have both.
+Fields without a `short:` or `long:` parameter will be understood to be positional arguments. Ordering is important here: positional arguments will be filled in the order that they appear in the definition.
+
+```ruby
+class PosOptions < Sprinkles::Opts::GetOpt
+  sig {override.returns(String)}
+  def self.program_name; "positional-options"; end
+
+  const :source, String
+  const :destination, String
+end
+
+opts = PosOptions.parse(%w{this that})
+assert_equal('this', opts.source)
+assert_equal(that, opts.destination)
+```
+
+Parsing will fail and exit the program with a usage statement if either too many or too few positional parameters are provided.
+
+```ruby
+opts = PosOptions.parse(%w{this})
+# this will exit and print the following:
+# Not enough arguments!
+# Usage: positional-options SOURCE DESTINATION
+#     -h, --help                       Prints this help
+```
 
 ## Optional Arguments
 
@@ -38,6 +62,25 @@ There are two ways of making arguments optional:
 - A field can have a `factory:` which should be a lambda that will be called to initialize the field if the argument is not provided.
 
 Fields that are not `T.nilable` and do not have a `factory:` must be provided when parsing arguments.
+
+For _positional_ arguments, there's currently an extra restriction: all mandatory positional arguments _must come first_, and will throw a definition-time error if they appear later. This means that positional parameters are matched in-order as they appear, and once we're out of positional parameters the remaining optional parameters will be initialized to `nil` (for `T.nilable` fields) or their provided defaults (if they have a `factory:` parameter.)
+
+```ruby
+class PosOptions < Sprinkles::Opts::GetOpt
+  sig {override.returns(String)}
+  def self.program_name; "positional-options"; end
+
+  const :a, String
+  const :b, T.nilable(String)
+  const :c, T.nilable(String)
+end
+
+PosOptions.parse(%w{1 2 3})  # a is 1, b is 2, c is 3
+PosOptions.parse(%w{a b})    # a is 1, b is 2, c is nil
+PosOptions.parse(%w{a})      # a is 1, b is nil, c is nil
+```
+
+It is still an error to pass too few positional parameters (i.e. fewer than there are mandatory positional parameters) or too many (i.e. more than there are total positional parameters, mandatory and optional).
 
 ## Help text and descriptions
 
@@ -52,6 +95,7 @@ Usage: my-program [opts]
 ```
 
 Individual fields can customize their default placeholder text away from the default `VALUE` using the `placeholder:` argument, and can provide more extensive descriptions using the `description:` argument.
+
 
 ## Why sprinkles?
 

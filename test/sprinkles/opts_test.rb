@@ -6,6 +6,21 @@ require 'sprinkles/opts'
 
 module Sprinkles
   class GetOptTest < Minitest::Test
+    extend T::Sig
+
+    sig {params(blk: T.proc.void).returns(String)}
+    def capture_usage(&blk)
+      out_buf = StringIO.new
+      begin
+        $stdout = out_buf
+        yield
+      rescue SystemExit
+        $stdout = STDOUT
+      end
+      help_text = out_buf.string
+      return help_text
+    end
+
     class SimpleOpt < Sprinkles::Opts::GetOpt
       sig { override.returns(String) }
       def self.program_name
@@ -43,17 +58,55 @@ module Sprinkles
     end
 
     def test_getopt_usage
-      out_buf = StringIO.new
-      begin
-        $stdout = out_buf
-        SimpleOpt.parse(['--help'])
-        $stdout = STDOUT
-      rescue SystemExit
-        help_text = out_buf.string
-        assert(help_text.include?('Usage: simple-opt [opts]'))
-        assert(help_text.include?('-i, --input=QUUX'))
-        assert(help_text.include?('-v, --[no-]verbose'))
+      help_text = capture_usage { SimpleOpt.parse(['--help']) }
+
+      assert(help_text.include?('Usage: simple-opt [opts]'))
+      assert(help_text.include?('-i, --input=QUUX'))
+      assert(help_text.include?('-v, --[no-]verbose'))
+    end
+
+    class Positional < Sprinkles::Opts::GetOpt
+      sig { override.returns(String) }
+      def self.program_name
+        'positional'
       end
+
+      const :first, String
+      const :second, Integer
+      const :third, T.nilable(Symbol)
+    end
+
+    def test_positional_params
+      opts = Positional.parse(%w[one 2 three])
+      assert_equal('one', opts.first)
+      assert_equal(2, opts.second)
+      assert_equal(:three, opts.third)
+
+      opts = Positional.parse(%w[one 2])
+      assert_equal('one', opts.first)
+      assert_equal(2, opts.second)
+      assert_nil(opts.third)
+    end
+
+    def test_positional_errors
+      msg = capture_usage { Positional.parse(%w[one]) }
+      assert(msg.include?('Not enough arguments'))
+      assert(msg.include?('FIRST SECOND [THIRD]'))
+
+      msg = capture_usage { Positional.parse(%w[one 2 three four]) }
+      assert(msg.include?('Too many arguments'))
+    end
+
+    def test_all_mandatory_first
+      msg = assert_raises(RuntimeError) do
+        Class.new(Sprinkles::Opts::GetOpt) do
+          T.unsafe(self).const(:foo, T.nilable(String))
+          T.unsafe(self).const(:bar, String)
+        end
+      end
+      msg = T.cast(msg, RuntimeError)
+      assert(msg.message.include?('`bar` is a mandatory positional field'))
+      assert(msg.message.include?('after the optional field(s) `foo`'))
     end
 
     class RichTypes < Sprinkles::Opts::GetOpt
@@ -131,15 +184,8 @@ module Sprinkles
     end
 
     def test_usage_string_for_enums
-      out_buf = StringIO.new
-      begin
-        $stdout = out_buf
-        OptsWithEnum.parse(['--help'])
-        $stdout = STDOUT
-      rescue SystemExit
-        help_text = out_buf.string
-        assert(help_text.include?('--value=[one|two]'))
-      end
+      help_text = capture_usage { OptsWithEnum.parse(['--help']) }
+      assert(help_text.include?('--value=[one|two]'))
     end
 
     def test_enum_values

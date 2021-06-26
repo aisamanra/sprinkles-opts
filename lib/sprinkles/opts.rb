@@ -18,6 +18,7 @@ module Sprinkles::Opts
     class Option < T::Struct
       extend T::Sig
 
+      const :name, Symbol
       const :short, T.nilable(String)
       const :long, T.nilable(String)
       const :type, T.untyped
@@ -33,6 +34,11 @@ module Sprinkles::Opts
         false
       end
 
+      sig { returns(T::Boolean) }
+      def positional?
+        short.nil? && long.nil?
+      end
+
       sig { returns(String) }
       def get_placeholder
         if type.is_a?(Class) && type < T::Enum
@@ -43,6 +49,20 @@ module Sprinkles::Opts
         end
         placeholder || 'VALUE'
       end
+
+      sig { returns(T::Array[String]) }
+      def optparse_args
+        args = []
+        if type == T::Boolean
+          args << "-#{short}" if short
+          args << "--[no-]#{long}" if long
+        else
+          args << "-#{short}#{get_placeholder}" if short
+          args << "--#{long}=#{get_placeholder}" if long
+        end
+        args << description if description
+        args
+      end
     end
 
     # for appeasing Sorbet, even though this isn't how we're using the
@@ -51,10 +71,10 @@ module Sprinkles::Opts
     sig { params(rest: T.untyped).returns(T.untyped) }
     def self.decorator(*rest); end
 
-    sig { returns(T::Hash[Symbol, Option]) }
+    sig { returns(T::Array[Option]) }
     private_class_method def self.fields
-      @fields = T.let(@fields, T.nilable(T::Hash[Symbol, Option]))
-      @fields ||= {}
+      @fields = T.let(@fields, T.nilable(T::Array[Option]))
+      @fields ||= []
     end
 
     sig do
@@ -80,28 +100,16 @@ module Sprinkles::Opts
       description: '',
       without_accessors: true
     )
-      raise 'Do not start options with -' if short.start_with?('-')
-      raise 'Do not start options with -' if long.start_with?('-')
-      if (short == 'h') || (long == 'help')
-        raise <<~RB
-          The options `-h` and `--help` are reserved by Sprinkles::Opts::GetOpt
-        RB
-      end
-      if !valid_type?(type)
-        raise "`#{type}` is not a valid parameter type"
-      end
-
       # we don't want to let the user pass in nil explicitly, so the
       # default values here are all '' instead, but we will treat ''
       # as if the argument was not provided
       short = nil if short.empty?
       long = nil if long.empty?
-      raise <<~RB if short.nil? && long.nil?
-        You must define at least one `short:` or `long:` option for #{name}
-      RB
 
       placeholder = nil if placeholder.empty?
-      fields[name] = Option.new(
+
+      opt = Option.new(
+        name: name,
         type: type,
         short: short,
         long: long,
@@ -109,10 +117,44 @@ module Sprinkles::Opts
         placeholder: placeholder,
         description: description
       )
+      validate!(opt)
+      fields << opt
+    end
+
+    sig { params(opt: Option).void }
+    private_class_method def self.validate!(opt)
+      raise 'Do not start options with -' if opt.short&.start_with?('-')
+      raise 'Do not start options with -' if opt.long&.start_with?('-')
+      if (opt.short == 'h') || (opt.long == 'help')
+        raise <<~RB
+          The options `-h` and `--help` are reserved by Sprinkles::Opts::GetOpt
+        RB
+      end
+      if !valid_type?(opt.type)
+        raise "`#{opt.type}` is not a valid parameter type"
+      end
+
+      # the invariant we want to keep is that all mandatory positional
+      # fields come first while all optional positional fields come
+      # after: this makes matching up positional fields a _lot_ easier
+      # and less surprising
+      if opt.positional? && opt.optional?
+        @seen_optional_positional = T.let(true, T.nilable(TrueClass))
+      end
+
+      if opt.positional? && !opt.optional? && @seen_optional_positional
+        # this means we're looking at a _mandatory_ positional field
+        # coming after an _optional_ positional field. To make things
+        # easy, we simply reject this case.
+        prev = fields.select {|f| f.positional? && f.optional?}
+        prev = prev.map {|f| "`#{f.name}`"}.to_a.join(", ")
+        raise "`#{opt.name}` is a mandatory positional field "\
+              "but it comes after the optional field(s) #{prev}"
+      end
     end
 
     sig { params(type: T.untyped).returns(T::Boolean) }
-    def self.valid_type?(type)
+    private_class_method def self.valid_type?(type)
       type = type.raw_type if type.is_a?(T::Types::Simple)
       # true if the type is one of the valid types
       return true if type == String || type == Symbol || type == Integer || type == Float || type == T::Boolean
@@ -155,54 +197,97 @@ module Sprinkles::Opts
       end
     end
 
-    sig { params(argv: T::Array[String]).returns(T.attached_class) }
-    def self.parse(argv)
-      values = {}
-      parser = OptionParser.new do |opts|
-        opts.banner = "Usage: #{program_name} [opts]"
-        opts.on('-h', '--help', 'Prints this help') do
-          puts opts
-          exit
-        end
-
-        fields.each do |name, o|
-          args = []
-          if o.type == T::Boolean
-            args << "-#{o.short}" if o.short
-            args << "--[no-]#{o.long}" if o.long
-          else
-            args << "-#{o.short}#{o.get_placeholder}" if o.short
-            args << "--#{o.long}=#{o.get_placeholder}" if o.long
-          end
-          args << o.description if o.description
-          opts.on(*args) do |v|
-            values[name] = v
-          end
-        end
-      end.parse(argv)
-
+    sig { params(values: T::Hash[Symbol, String]).returns(T.attached_class) }
+    private_class_method def self.build_config(values)
       o = new
-      fields.each do |name, opts|
-        if opts.type == T::Boolean
-          o.define_singleton_method(name) { !!values.fetch(name, false) }
-        elsif values.include?(name)
-          v = Sprinkles::Opts::GetOpt.convert_str(values.fetch(name), opts.type)
-          o.define_singleton_method(name) { v }
-        elsif !opts.factory.nil?
-          v = T.must(opts.factory).call
-          o.define_singleton_method(name) { v }
-        elsif opts.optional?
-          o.define_singleton_method(name) { nil }
+      serialized = {}
+      fields.each do |field|
+        if field.type == T::Boolean
+          v = !!values.fetch(field.name, false)
+        elsif values.include?(field.name)
+          v = Sprinkles::Opts::GetOpt.convert_str(values.fetch(field.name), field.type)
+        elsif !field.factory.nil?
+          v = T.must(field.factory).call
+        elsif field.optional?
+          v = nil
         else
-          raise "Expected a value for #{name}"
+          raise "Expected a value for #{field.name}"
         end
+        o.define_singleton_method(field.name) { v }
+        serialized[field.name] = v
       end
+      o.define_singleton_method(:_serialize) {serialized}
       o
     end
 
-    sig { returns(T.attached_class) }
-    def self.parse!
-      parse(ARGV)
+    sig { params(argv: T::Array[String]).returns(T::Hash[Symbol, String]) }
+    private_class_method def self.match_positional_fields(argv)
+      pos_fields = fields.select(&:positional?)
+      total_positional = pos_fields.size
+      min_positional = total_positional - pos_fields.count(&:optional?)
+
+      usage!("Too many arguments!") if argv.size > total_positional
+      usage!("Not enough arguments!") if argv.size < min_positional
+
+      pos_values = T::Hash[Symbol, String].new
+      pos_fields.zip(argv).each do |field, arg|
+        next if arg.nil?
+        pos_values[field.name] = arg
+      end
+
+      pos_values
+    end
+
+    sig { params(msg: String).void }
+    private_class_method def self.usage!(msg='')
+      raise <<~RB if @opts.nil?
+        Internal error: tried to call `usage!` before building option parser!
+      RB
+
+      puts msg if !msg.empty?
+      puts @opts
+      exit
+    end
+
+    sig { returns(String) }
+    private_class_method def self.cmdline
+      pos_fields = fields.select(&:positional?)
+      cmd_line = T::Array[String].new
+      pos_fields.each do |field|
+        if field.optional?
+          cmd_line << "[#{field.name.to_s.upcase}]"
+        else
+          cmd_line << field.name.to_s.upcase
+        end
+      end
+      cmd_line << "[opts]" if fields.size > pos_fields.size
+      cmd_line.join(" ")
+    end
+
+    sig { params(argv: T::Array[String]).returns(T.attached_class) }
+    def self.parse(argv=ARGV)
+      # we're going to destructively modify this
+      argv = argv.clone
+
+      values = T::Hash[Symbol, String].new
+      parser = OptionParser.new do |opts|
+        @opts = T.let(opts, T.nilable(OptionParser))
+        opts.banner = "Usage: #{program_name} #{cmdline}"
+        opts.on('-h', '--help', 'Prints this help') do
+          usage!
+        end
+
+        fields.each do |field|
+          next if field.positional?
+          opts.on(*field.optparse_args) do |v|
+            values[field.name] = v
+          end
+        end
+      end.parse!(argv)
+
+      values.merge!(match_positional_fields(argv))
+
+      build_config(values)
     end
   end
 end
