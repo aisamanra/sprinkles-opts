@@ -17,6 +17,7 @@ module Sprinkles
       sig { abstract.returns(String) }
       def self.program_name; end
 
+      # whatever
       class Option < T::Struct
         extend T::Sig
 
