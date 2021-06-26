@@ -200,21 +200,23 @@ module Sprinkles::Opts
     sig { params(values: T::Hash[Symbol, String]).returns(T.attached_class) }
     private_class_method def self.build_config(values)
       o = new
+      serialized = {}
       fields.each do |field|
         if field.type == T::Boolean
-          o.define_singleton_method(field.name) { !!values.fetch(field.name, false) }
+          v = !!values.fetch(field.name, false)
         elsif values.include?(field.name)
           v = Sprinkles::Opts::GetOpt.convert_str(values.fetch(field.name), field.type)
-          o.define_singleton_method(field.name) { v }
         elsif !field.factory.nil?
           v = T.must(field.factory).call
-          o.define_singleton_method(field.name) { v }
         elsif field.optional?
-          o.define_singleton_method(field.name) { nil }
+          v = nil
         else
           raise "Expected a value for #{field.name}"
         end
+        o.define_singleton_method(field.name) { v }
+        serialized[field.name] = v
       end
+      o.define_singleton_method(:_serialize) {serialized}
       o
     end
 
