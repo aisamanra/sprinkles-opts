@@ -44,7 +44,7 @@ module Sprinkles::Opts
         if type.is_a?(Class) && type < T::Enum
           # if the type is an enum, we can enumerate the possible
           # values in a rich way
-          possible_values = type.values.map(&:serialize).join("|")
+          possible_values = type.values.map(&:serialize).join('|')
           return "[#{possible_values}]"
         end
         placeholder || 'VALUE'
@@ -130,24 +130,20 @@ module Sprinkles::Opts
           The options `-h` and `--help` are reserved by Sprinkles::Opts::GetOpt
         RB
       end
-      if !valid_type?(opt.type)
-        raise "`#{opt.type}` is not a valid parameter type"
-      end
+      raise "`#{opt.type}` is not a valid parameter type" unless valid_type?(opt.type)
 
       # the invariant we want to keep is that all mandatory positional
       # fields come first while all optional positional fields come
       # after: this makes matching up positional fields a _lot_ easier
       # and less surprising
-      if opt.positional? && opt.optional?
-        @seen_optional_positional = T.let(true, T.nilable(TrueClass))
-      end
+      @seen_optional_positional = T.let(true, T.nilable(TrueClass)) if opt.positional? && opt.optional?
 
       if opt.positional? && !opt.optional? && @seen_optional_positional
         # this means we're looking at a _mandatory_ positional field
         # coming after an _optional_ positional field. To make things
         # easy, we simply reject this case.
-        prev = fields.select {|f| f.positional? && f.optional?}
-        prev = prev.map {|f| "`#{f.name}`"}.to_a.join(", ")
+        prev = fields.select { |f| f.positional? && f.optional? }
+        prev = prev.map { |f| "`#{f.name}`" }.to_a.join(', ')
         raise "`#{opt.name}` is a mandatory positional field "\
               "but it comes after the optional field(s) #{prev}"
       end
@@ -157,13 +153,15 @@ module Sprinkles::Opts
     private_class_method def self.valid_type?(type)
       type = type.raw_type if type.is_a?(T::Types::Simple)
       # true if the type is one of the valid types
-      return true if type == String || type == Symbol || type == Integer || type == Float || type == T::Boolean
+      return true if [String, Symbol, Integer, Float, T::Boolean].include?(type)
       # allow enumeration types
       return true if type.is_a?(Class) && type < T::Enum
+
       # true if it's a nilable valid type
       if type.is_a?(T::Types::Union)
         other_types = type.types.to_set - [T::Utils.coerce(NilClass)]
         return false if other_types.size > 1
+
         return valid_type?(other_types.first)
       end
 
@@ -216,7 +214,7 @@ module Sprinkles::Opts
         o.define_singleton_method(field.name) { v }
         serialized[field.name] = v
       end
-      o.define_singleton_method(:_serialize) {serialized}
+      o.define_singleton_method(:_serialize) { serialized }
       o
     end
 
@@ -226,12 +224,13 @@ module Sprinkles::Opts
       total_positional = pos_fields.size
       min_positional = total_positional - pos_fields.count(&:optional?)
 
-      usage!("Too many arguments!") if argv.size > total_positional
-      usage!("Not enough arguments!") if argv.size < min_positional
+      usage!('Too many arguments!') if argv.size > total_positional
+      usage!('Not enough arguments!') if argv.size < min_positional
 
       pos_values = T::Hash[Symbol, String].new
       pos_fields.zip(argv).each do |field, arg|
         next if arg.nil?
+
         pos_values[field.name] = arg
       end
 
@@ -239,12 +238,12 @@ module Sprinkles::Opts
     end
 
     sig { params(msg: String).void }
-    private_class_method def self.usage!(msg='')
+    private_class_method def self.usage!(msg = '')
       raise <<~RB if @opts.nil?
         Internal error: tried to call `usage!` before building option parser!
       RB
 
-      puts msg if !msg.empty?
+      puts msg unless msg.empty?
       puts @opts
       exit
     end
@@ -283,7 +282,7 @@ module Sprinkles::Opts
     end
 
     sig { params(argv: T::Array[String]).returns(T.attached_class) }
-    def self.parse(argv=ARGV)
+    def self.parse(argv = ARGV)
       # we're going to destructively modify this
       argv = argv.clone
 
@@ -297,6 +296,7 @@ module Sprinkles::Opts
 
         fields.each do |field|
           next if field.positional?
+
           opts.on(*field.optparse_args) do |v|
             values[field.name] = v
           end
