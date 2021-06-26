@@ -34,6 +34,11 @@ module Sprinkles::Opts
         false
       end
 
+      sig { returns(T::Boolean) }
+      def positional?
+        short.nil? && long.nil?
+      end
+
       sig { returns(String) }
       def get_placeholder
         if type.is_a?(Class) && type < T::Enum
@@ -170,7 +175,7 @@ module Sprinkles::Opts
     end
 
     sig { params(values: T::Hash[Symbol, String]).returns(T.attached_class) }
-    def self.build_config(values)
+    private_class_method def self.build_config(values)
       o = new
       fields.each do |field|
         if field.type == T::Boolean
@@ -190,29 +195,59 @@ module Sprinkles::Opts
       o
     end
 
+    sig { params(argv: T::Array[String]).returns(T::Hash[Symbol, String]) }
+    private_class_method def self.match_positional_fields(argv)
+      pos_fields = fields.select(&:positional?)
+      total_positional = pos_fields.size
+      min_positional = total_positional - pos_fields.count(&:optional?)
+
+      usage!("Too many arguments!") if argv.size > total_positional
+      usage!("Not enough arguments!") if argv.size < min_positional
+
+      pos_values = T::Hash[Symbol, String].new
+      pos_fields.zip(argv).each do |field, arg|
+        next if arg.nil?
+        pos_values[field.name] = arg
+      end
+
+      pos_values
+    end
+
+    sig { params(msg: String).void }
+    private_class_method def self.usage!(msg='')
+      raise <<~RB if @opts.nil?
+        Internal error: tried to call `usage!` before building option parser!
+      RB
+
+      puts msg if !msg.empty?
+      puts @opts
+      exit
+    end
+
     sig { params(argv: T::Array[String]).returns(T.attached_class) }
-    def self.parse(argv)
+    def self.parse(argv=ARGV)
+      # we're going to destructively modify this
+      argv = argv.clone
+
       values = T::Hash[Symbol, String].new
       parser = OptionParser.new do |opts|
+        @opts = T.let(opts, T.nilable(OptionParser))
         opts.banner = "Usage: #{program_name} [opts]"
         opts.on('-h', '--help', 'Prints this help') do
-          puts opts
-          exit
+          usage!
         end
 
         fields.each do |field|
+          next if field.positional?
           opts.on(*field.optparse_args) do |v|
             values[field.name] = v
           end
         end
-      end.parse(argv)
+      end.parse!(argv)
+
+      values.merge!(match_positional_fields(argv))
 
       build_config(values)
-    end
-
-    sig { returns(T.attached_class) }
-    def self.parse!
-      parse(ARGV)
     end
   end
 end
