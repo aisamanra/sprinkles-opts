@@ -76,8 +76,8 @@ class PosOptions < Sprinkles::Opts::GetOpt
 end
 
 PosOptions.parse(%w{1 2 3})  # a is 1, b is 2, c is 3
-PosOptions.parse(%w{a b})    # a is 1, b is 2, c is nil
-PosOptions.parse(%w{a})      # a is 1, b is nil, c is nil
+PosOptions.parse(%w{1 2})    # a is 1, b is 2, c is nil
+PosOptions.parse(%w{3})      # a is 1, b is nil, c is nil
 ```
 
 It is still an error to pass too few positional parameters (i.e. fewer than there are mandatory positional parameters) or too many (i.e. more than there are total positional parameters, mandatory and optional).
