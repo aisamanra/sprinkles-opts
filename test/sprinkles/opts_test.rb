@@ -8,7 +8,7 @@ module Sprinkles
   class GetOptTest < Minitest::Test
     extend T::Sig
 
-    sig {params(blk: T.proc.void).returns(String)}
+    sig { params(blk: T.proc.void).returns(String) }
     def capture_usage(&blk)
       out_buf = StringIO.new
       begin
@@ -17,8 +17,7 @@ module Sprinkles
       rescue SystemExit
         $stdout = STDOUT
       end
-      help_text = out_buf.string
-      return help_text
+      out_buf.string
     end
 
     class SimpleOpt < Sprinkles::Opts::GetOpt
@@ -28,7 +27,7 @@ module Sprinkles
       end
 
       const :input, String, short: 'i', long: 'input', placeholder: 'QUUX'
-      const :verbose, T::Boolean, short: 'v', long: 'verbose', factory: -> {false}
+      const :verbose, T::Boolean, short: 'v', long: 'verbose', factory: -> { false }
     end
 
     def test_getopt_short
@@ -178,9 +177,11 @@ module Sprinkles
 
     class OptsWithEnum < Sprinkles::Opts::GetOpt
       sig { override.returns(String) }
-      def self.program_name; "opts-with-enum"; end
+      def self.program_name
+        'opts-with-enum'
+      end
 
-      const :value, MyEnum, long: "value"
+      const :value, MyEnum, long: 'value'
     end
 
     def test_usage_string_for_enums

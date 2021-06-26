@@ -1,0 +1,17 @@
+AllCops:
+  SuggestExtensions: false
+  NewCops: enable
+# This does not play well with Sorbet, which sometimes needs
+# apparently-unused method arguments
+Lint/UnusedMethodArgument:
+  Enabled: false
+# This is included because !! is useful for Sorbet to do Boolean
+# conversions
+Style/DoubleNegation:
+  Enabled: false
+# ...this cop is just wrong, apparently?
+Style/CombinableLoops:
+  Enabled: false
+# All these are useless and ridiculous
+Metrics:
+  Enabled: false
