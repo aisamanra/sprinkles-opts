@@ -251,16 +251,34 @@ module Sprinkles::Opts
 
     sig { returns(String) }
     private_class_method def self.cmdline
-      pos_fields = fields.select(&:positional?)
       cmd_line = T::Array[String].new
-      pos_fields.each do |field|
+      field_count = 0
+      # first, all the positional fields
+      fields.each do |field|
+        next if !field.positional?
+        field_count += 1
         if field.optional?
           cmd_line << "[#{field.name.to_s.upcase}]"
         else
           cmd_line << field.name.to_s.upcase
         end
       end
-      cmd_line << "[opts]" if fields.size > pos_fields.size
+      # next, the non-positional but mandatory flags
+      # (leaving the optional flags for the other help)
+      fields.each do |field|
+        next if field.positional?
+        next if field.optional?
+        field_count += 1
+        if field.long
+          cmd_line << "--#{field.long}=#{field.get_placeholder}"
+        else
+          cmd_line << "-#{field.short}#{field.get_placeholder}"
+        end
+      end
+
+      # we'll only add the final [OPTS...] if there are other things
+      # we haven't listed yet
+      cmd_line << "[OPTS...]" if fields.size > field_count
       cmd_line.join(" ")
     end
 
@@ -273,7 +291,7 @@ module Sprinkles::Opts
       parser = OptionParser.new do |opts|
         @opts = T.let(opts, T.nilable(OptionParser))
         opts.banner = "Usage: #{program_name} #{cmdline}"
-        opts.on('-h', '--help', 'Prints this help') do
+        opts.on('-h', '--help', 'Print this help') do
           usage!
         end
 
