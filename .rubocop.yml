@@ -1,0 +1,13 @@
+AllCops:
+  SuggestExtensions: false
+  NewCops: enable
+Lint/UnusedMethodArgument:
+  Enabled: false
+Metrics:
+  Enabled: false
+Metrics/ClassLength:
+  Enabled: false
+Metrics/AbcSize:
+  Enabled: false
+Style/DoubleNegation:
+  Enabled: false
