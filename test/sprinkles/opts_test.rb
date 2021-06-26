@@ -28,7 +28,7 @@ module Sprinkles
       end
 
       const :input, String, short: 'i', long: 'input', placeholder: 'QUUX'
-      const :verbose, T::Boolean, short: 'v', long: 'verbose'
+      const :verbose, T::Boolean, short: 'v', long: 'verbose', factory: -> {false}
     end
 
     def test_getopt_short
@@ -60,7 +60,7 @@ module Sprinkles
     def test_getopt_usage
       help_text = capture_usage { SimpleOpt.parse(['--help']) }
 
-      assert(help_text.include?('Usage: simple-opt [opts]'))
+      assert(help_text.include?('Usage: simple-opt --input=QUUX [OPTS...]'))
       assert(help_text.include?('-i, --input=QUUX'))
       assert(help_text.include?('-v, --[no-]verbose'))
     end
