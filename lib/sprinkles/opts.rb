@@ -169,7 +169,7 @@ module Sprinkles::Opts
       end
     end
 
-    sig { params(values: T::Array[String, String]).returns(T.attached_class) }
+    sig { params(values: T::Hash[Symbol, String]).returns(T.attached_class) }
     def self.build_config(values)
       o = new
       fields.each do |field|
@@ -192,7 +192,7 @@ module Sprinkles::Opts
 
     sig { params(argv: T::Array[String]).returns(T.attached_class) }
     def self.parse(argv)
-      values = {}
+      values = T::Hash[Symbol, String].new
       parser = OptionParser.new do |opts|
         opts.banner = "Usage: #{program_name} [opts]"
         opts.on('-h', '--help', 'Prints this help') do
