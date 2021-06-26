@@ -152,7 +152,7 @@ module Sprinkles
       private_class_method def self.valid_type?(type)
         type = type.raw_type if type.is_a?(T::Types::Simple)
         # true if the type is one of the valid types
-        return true if [String, Symbol, Integer, Float, T::Boolean].include?(type)
+        return true if Set[String, Symbol, Integer, Float, T::Boolean].include?(type)
         # allow enumeration types
         return true if type.is_a?(Class) && type < T::Enum
 
