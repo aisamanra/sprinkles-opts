@@ -14,7 +14,7 @@ class MyOptions < Sprinkles::Opts::GetOpt
 
   const :input, String, short: 'i', long: 'input'
   const :num_iterations, Integer, short: 'n', placeholder: 'N'
-  const :verbose, T::Boolean, short: 'v', long: 'verbose'
+  const :verbose, T::Boolean, short: 'v', long: 'verbose', factory: -> {false}
 end
 ```
 
@@ -77,7 +77,7 @@ end
 
 PosOptions.parse(%w{1 2 3})  # a is 1, b is 2, c is 3
 PosOptions.parse(%w{1 2})    # a is 1, b is 2, c is nil
-PosOptions.parse(%w{3})      # a is 1, b is nil, c is nil
+PosOptions.parse(%w{1})      # a is 1, b is nil, c is nil
 ```
 
 It is still an error to pass too few positional parameters (i.e. fewer than there are mandatory positional parameters) or too many (i.e. more than there are total positional parameters, mandatory and optional).
@@ -87,10 +87,10 @@ It is still an error to pass too few positional parameters (i.e. fewer than ther
 The option names `-h` and `--help` are reserved, and when they are provided the program will print a usage panel and exit:
 
 ```
-Usage: my-program [opts]
-    -h, --help                       Prints this help
+Usage: my-program --input=VALUE -nN
+    -h, --help                       Print this help
     -i, --input=VALUE
-    -n, --num-iterations=N
+    -nN
     -v, --[no-]verbose
 ```
 
