@@ -169,23 +169,8 @@ module Sprinkles::Opts
       end
     end
 
-    sig { params(argv: T::Array[String]).returns(T.attached_class) }
-    def self.parse(argv)
-      values = {}
-      parser = OptionParser.new do |opts|
-        opts.banner = "Usage: #{program_name} [opts]"
-        opts.on('-h', '--help', 'Prints this help') do
-          puts opts
-          exit
-        end
-
-        fields.each do |field|
-          opts.on(*field.optparse_args) do |v|
-            values[field.name] = v
-          end
-        end
-      end.parse(argv)
-
+    sig { params(values: T::Array[String, String]).returns(T.attached_class) }
+    def self.build_config(values)
       o = new
       fields.each do |field|
         if field.type == T::Boolean
@@ -203,6 +188,26 @@ module Sprinkles::Opts
         end
       end
       o
+    end
+
+    sig { params(argv: T::Array[String]).returns(T.attached_class) }
+    def self.parse(argv)
+      values = {}
+      parser = OptionParser.new do |opts|
+        opts.banner = "Usage: #{program_name} [opts]"
+        opts.on('-h', '--help', 'Prints this help') do
+          puts opts
+          exit
+        end
+
+        fields.each do |field|
+          opts.on(*field.optparse_args) do |v|
+            values[field.name] = v
+          end
+        end
+      end.parse(argv)
+
+      build_config(values)
     end
 
     sig { returns(T.attached_class) }
