@@ -100,17 +100,6 @@ module Sprinkles::Opts
       description: '',
       without_accessors: true
     )
-      raise 'Do not start options with -' if short.start_with?('-')
-      raise 'Do not start options with -' if long.start_with?('-')
-      if (short == 'h') || (long == 'help')
-        raise <<~RB
-          The options `-h` and `--help` are reserved by Sprinkles::Opts::GetOpt
-        RB
-      end
-      if !valid_type?(type)
-        raise "`#{type}` is not a valid parameter type"
-      end
-
       # we don't want to let the user pass in nil explicitly, so the
       # default values here are all '' instead, but we will treat ''
       # as if the argument was not provided
@@ -119,7 +108,7 @@ module Sprinkles::Opts
 
       placeholder = nil if placeholder.empty?
 
-      fields << Option.new(
+      opt = Option.new(
         name: name,
         type: type,
         short: short,
@@ -128,6 +117,40 @@ module Sprinkles::Opts
         placeholder: placeholder,
         description: description
       )
+      validate!(opt)
+      fields << opt
+    end
+
+    sig { params(opt: Option).void }
+    private_class_method def self.validate!(opt)
+      raise 'Do not start options with -' if opt.short&.start_with?('-')
+      raise 'Do not start options with -' if opt.long&.start_with?('-')
+      if (opt.short == 'h') || (opt.long == 'help')
+        raise <<~RB
+          The options `-h` and `--help` are reserved by Sprinkles::Opts::GetOpt
+        RB
+      end
+      if !valid_type?(opt.type)
+        raise "`#{opt.type}` is not a valid parameter type"
+      end
+
+      # the invariant we want to keep is that all mandatory positional
+      # fields come first while all optional positional fields come
+      # after: this makes matching up positional fields a _lot_ easier
+      # and less surprising
+      if opt.positional? && opt.optional?
+        @seen_optional_positional = T.let(true, T.nilable(TrueClass))
+      end
+
+      if opt.positional? && !opt.optional? && @seen_optional_positional
+        # this means we're looking at a _mandatory_ positional field
+        # coming after an _optional_ positional field. To make things
+        # easy, we simply reject this case.
+        prev = fields.select {|f| f.positional? && f.optional?}
+        prev = prev.map {|f| "`#{f.name}`"}.to_a.join(", ")
+        raise "`#{opt.name}` is a mandatory positional field "\
+              "but it comes after the optional field(s) #{prev}"
+      end
     end
 
     sig { params(type: T.untyped).returns(T::Boolean) }
@@ -224,6 +247,21 @@ module Sprinkles::Opts
       exit
     end
 
+    sig { returns(String) }
+    private_class_method def self.cmdline
+      pos_fields = fields.select(&:positional?)
+      cmd_line = T::Array[String].new
+      pos_fields.each do |field|
+        if field.optional?
+          cmd_line << "[#{field.name.to_s.upcase}]"
+        else
+          cmd_line << field.name.to_s.upcase
+        end
+      end
+      cmd_line << "[opts]" if fields.size > pos_fields.size
+      cmd_line.join(" ")
+    end
+
     sig { params(argv: T::Array[String]).returns(T.attached_class) }
     def self.parse(argv=ARGV)
       # we're going to destructively modify this
@@ -232,7 +270,7 @@ module Sprinkles::Opts
       values = T::Hash[Symbol, String].new
       parser = OptionParser.new do |opts|
         @opts = T.let(opts, T.nilable(OptionParser))
-        opts.banner = "Usage: #{program_name} [opts]"
+        opts.banner = "Usage: #{program_name} #{cmdline}"
         opts.on('-h', '--help', 'Prints this help') do
           usage!
         end

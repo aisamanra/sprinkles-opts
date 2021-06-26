@@ -91,11 +91,23 @@ module Sprinkles
     def test_positional_errors
       msg = capture_usage { Positional.parse(%w[one]) }
       assert(msg.include?('Not enough arguments'))
+      assert(msg.include?('FIRST SECOND [THIRD]'))
 
       msg = capture_usage { Positional.parse(%w[one 2 three four]) }
       assert(msg.include?('Too many arguments'))
     end
 
+    def test_all_mandatory_first
+      msg = assert_raises(RuntimeError) do
+        Class.new(Sprinkles::Opts::GetOpt) do
+          T.unsafe(self).const(:foo, T.nilable(String))
+          T.unsafe(self).const(:bar, String)
+        end
+      end
+      msg = T.cast(msg, RuntimeError)
+      assert(msg.message.include?('`bar` is a mandatory positional field'))
+      assert(msg.message.include?('after the optional field(s) `foo`'))
+    end
 
     class RichTypes < Sprinkles::Opts::GetOpt
       sig { override.returns(String) }
