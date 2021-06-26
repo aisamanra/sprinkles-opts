@@ -18,6 +18,7 @@ module Sprinkles::Opts
     class Option < T::Struct
       extend T::Sig
 
+      const :name, Symbol
       const :short, T.nilable(String)
       const :long, T.nilable(String)
       const :type, T.untyped
@@ -51,10 +52,10 @@ module Sprinkles::Opts
     sig { params(rest: T.untyped).returns(T.untyped) }
     def self.decorator(*rest); end
 
-    sig { returns(T::Hash[Symbol, Option]) }
+    sig { returns(T::Array[Option]) }
     private_class_method def self.fields
-      @fields = T.let(@fields, T.nilable(T::Hash[Symbol, Option]))
-      @fields ||= {}
+      @fields = T.let(@fields, T.nilable(T::Array[Option]))
+      @fields ||= []
     end
 
     sig do
@@ -96,12 +97,10 @@ module Sprinkles::Opts
       # as if the argument was not provided
       short = nil if short.empty?
       long = nil if long.empty?
-      raise <<~RB if short.nil? && long.nil?
-        You must define at least one `short:` or `long:` option for #{name}
-      RB
 
       placeholder = nil if placeholder.empty?
-      fields[name] = Option.new(
+      fields << Option.new(
+        name: name,
         type: type,
         short: short,
         long: long,
@@ -165,36 +164,36 @@ module Sprinkles::Opts
           exit
         end
 
-        fields.each do |name, o|
+        fields.each do |field|
           args = []
-          if o.type == T::Boolean
-            args << "-#{o.short}" if o.short
-            args << "--[no-]#{o.long}" if o.long
+          if field.type == T::Boolean
+            args << "-#{field.short}" if field.short
+            args << "--[no-]#{field.long}" if field.long
           else
-            args << "-#{o.short}#{o.get_placeholder}" if o.short
-            args << "--#{o.long}=#{o.get_placeholder}" if o.long
+            args << "-#{field.short}#{field.get_placeholder}" if field.short
+            args << "--#{field.long}=#{field.get_placeholder}" if field.long
           end
-          args << o.description if o.description
+          args << field.description if field.description
           opts.on(*args) do |v|
-            values[name] = v
+            values[field.name] = v
           end
         end
       end.parse(argv)
 
       o = new
-      fields.each do |name, opts|
-        if opts.type == T::Boolean
-          o.define_singleton_method(name) { !!values.fetch(name, false) }
-        elsif values.include?(name)
-          v = Sprinkles::Opts::GetOpt.convert_str(values.fetch(name), opts.type)
-          o.define_singleton_method(name) { v }
-        elsif !opts.factory.nil?
-          v = T.must(opts.factory).call
-          o.define_singleton_method(name) { v }
-        elsif opts.optional?
-          o.define_singleton_method(name) { nil }
+      fields.each do |field|
+        if field.type == T::Boolean
+          o.define_singleton_method(field.name) { !!values.fetch(field.name, false) }
+        elsif values.include?(field.name)
+          v = Sprinkles::Opts::GetOpt.convert_str(values.fetch(field.name), field.type)
+          o.define_singleton_method(field.name) { v }
+        elsif !field.factory.nil?
+          v = T.must(field.factory).call
+          o.define_singleton_method(field.name) { v }
+        elsif field.optional?
+          o.define_singleton_method(field.name) { nil }
         else
-          raise "Expected a value for #{name}"
+          raise "Expected a value for #{field.name}"
         end
       end
       o
