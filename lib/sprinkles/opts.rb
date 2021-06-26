@@ -4,8 +4,11 @@
 require 'optparse'
 require 'sorbet-runtime'
 
+# foo
 module Sprinkles
+  # bar
   module Opts
+    # baz
     class GetOpt
       extend T::Sig
       extend T::Helpers
