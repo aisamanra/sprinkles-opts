@@ -11,3 +11,5 @@ Metrics/AbcSize:
   Enabled: false
 Style/DoubleNegation:
   Enabled: false
+Style/CombinableLoops:
+  Enabled: false

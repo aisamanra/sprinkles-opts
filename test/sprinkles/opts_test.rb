@@ -9,7 +9,7 @@ module Sprinkles
     extend T::Sig
 
     sig { params(blk: T.proc.void).returns(String) }
-    def capture_usage
+    def capture_usage(&blk)
       out_buf = StringIO.new
       begin
         $stdout = out_buf
@@ -27,7 +27,7 @@ module Sprinkles
       end
 
       const :input, String, short: 'i', long: 'input', placeholder: 'QUUX'
-      const :verbose, T::Boolean, short: 'v', long: 'verbose', factory: -> {false}
+      const :verbose, T::Boolean, short: 'v', long: 'verbose', factory: -> { false }
     end
 
     def test_getopt_short
