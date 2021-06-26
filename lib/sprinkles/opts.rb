@@ -4,12 +4,9 @@
 require 'optparse'
 require 'sorbet-runtime'
 
-# foo
 module Sprinkles
-  # bar
   module Opts
-    # baz
-    class GetOpt
+    class GetOpt # rubocop:disable Style/Documentation
       extend T::Sig
       extend T::Helpers
       abstract!
@@ -17,8 +14,7 @@ module Sprinkles
       sig { abstract.returns(String) }
       def self.program_name; end
 
-      # whatever
-      class Option < T::Struct
+      class Option < T::Struct # rubocop:disable Style/Documentation
         extend T::Sig
 
         const :name, Symbol
