@@ -47,7 +47,7 @@ module Sprinkles::Opts
           # if the type is an enum, we can enumerate the possible
           # values in a rich way
           possible_values = type.values.map(&:serialize).join("|")
-          return "[#{possible_values}]"
+          return "<#{possible_values}>"
         end
         placeholder || default
       end
@@ -210,7 +210,12 @@ module Sprinkles::Opts
           default = field.factory&.call if !field.factory.nil?
           v = !!values.fetch(field.name, default)
         elsif values.include?(field.name)
-          v = Sprinkles::Opts::GetOpt.convert_str(values.fetch(field.name), field.type)
+          val = values.fetch(field.name)
+          begin
+            v = Sprinkles::Opts::GetOpt.convert_str(val, field.type)
+          rescue KeyError => exn
+            usage!("Invalid value `#{val}` for field `#{field.name}`:\n  #{exn.message}")
+          end
         elsif !field.factory.nil?
           v = T.must(field.factory).call
         elsif field.optional?
