@@ -41,15 +41,15 @@ module Sprinkles::Opts
         short.nil? && long.nil?
       end
 
-      sig { returns(String) }
-      def get_placeholder
+      sig { params(default: String).returns(String) }
+      def get_placeholder(default='VALUE')
         if type.is_a?(Class) && type < T::Enum
           # if the type is an enum, we can enumerate the possible
           # values in a rich way
           possible_values = type.values.map(&:serialize).join("|")
           return "[#{possible_values}]"
         end
-        placeholder || 'VALUE'
+        placeholder || default
       end
 
       sig { returns(T::Array[String]) }
@@ -260,10 +260,11 @@ module Sprinkles::Opts
       fields.each do |field|
         next if !field.positional?
         field_count += 1
+        field_name = field.get_placeholder(field.name.to_s.upcase)
         if field.optional?
-          cmd_line << "[#{field.name.to_s.upcase}]"
+          cmd_line << "[#{field_name}]"
         else
-          cmd_line << field.name.to_s.upcase
+          cmd_line << field_name
         end
       end
       # next, the non-positional but mandatory flags
