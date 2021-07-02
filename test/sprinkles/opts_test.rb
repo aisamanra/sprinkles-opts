@@ -141,6 +141,8 @@ module Sprinkles
 
       const :opt_integer, T.nilable(Integer), short: 'e'
       const :def_integer, Integer, short: 'f', factory: -> { 55 }
+
+      const :def_bool, T::Boolean, short: 'g', factory: -> { true }
     end
 
     def test_nilable_with_nil
@@ -154,6 +156,8 @@ module Sprinkles
 
       assert_nil(opts.opt_integer)
       assert_equal(55, opts.def_integer)
+
+      assert_equal(true, opts.def_bool)
     end
 
     def test_nilable_with_values

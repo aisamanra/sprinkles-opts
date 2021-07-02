@@ -206,7 +206,9 @@ module Sprinkles::Opts
       serialized = {}
       fields.each do |field|
         if field.type == T::Boolean
-          v = !!values.fetch(field.name, false)
+          default = false
+          default = field.factory&.call if !field.factory.nil?
+          v = !!values.fetch(field.name, default)
         elsif values.include?(field.name)
           v = Sprinkles::Opts::GetOpt.convert_str(values.fetch(field.name), field.type)
         elsif !field.factory.nil?
