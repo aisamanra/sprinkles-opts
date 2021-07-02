@@ -12,8 +12,10 @@ module Sprinkles::Opts
     extend T::Helpers
     abstract!
 
-    sig { abstract.returns(String) }
-    def self.program_name; end
+    sig { overridable.returns(String) }
+    def self.program_name
+      $PROGRAM_NAME
+    end
 
     class Option < T::Struct
       extend T::Sig
@@ -119,6 +121,7 @@ module Sprinkles::Opts
       )
       validate!(opt)
       fields << opt
+      self.define_method(name) { instance_variable_get("@#{name}") }
     end
 
     sig { params(opt: Option).void }
@@ -211,9 +214,9 @@ module Sprinkles::Opts
         elsif field.optional?
           v = nil
         else
-          raise "Expected a value for #{field.name}"
+          usage!("Expected a value for `#{field.name}`")
         end
-        o.define_singleton_method(field.name) { v }
+        o.instance_variable_set("@#{field.name}", v)
         serialized[field.name] = v
       end
       o.define_singleton_method(:_serialize) {serialized}
