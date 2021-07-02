@@ -184,26 +184,31 @@ module Sprinkles
       sig { override.returns(String) }
       def self.program_name; "opts-with-enum"; end
 
-      const :value, MyEnum, long: "value"
+      const :value, MyEnum, short: 'v', long: "value"
     end
 
     def test_usage_string_for_enums
       help_text = capture_usage { OptsWithEnum.parse(['--help']) }
-      assert(help_text.include?('--value=[one|two]'))
+      assert(help_text.include?('--value=<one|two>'))
     end
 
     def test_enum_values
+      opts = OptsWithEnum.parse(%w[-v one])
+      assert_equal(MyEnum::One, opts.value)
+
       opts = OptsWithEnum.parse(%w[--value=one])
       assert_equal(MyEnum::One, opts.value)
+
+      opts = OptsWithEnum.parse(%w[-v two])
+      assert_equal(MyEnum::Two, opts.value)
 
       opts = OptsWithEnum.parse(%w[--value=two])
       assert_equal(MyEnum::Two, opts.value)
 
-      msg = assert_raises(KeyError) do
+      msg = capture_usage do
         opts = OptsWithEnum.parse(%w[--value=seventeen])
       end
-      msg = T.cast(msg, KeyError)
-      assert(msg.message.include?('key not found: "seventeen"'))
+      assert(msg.include?('key not found: "seventeen"'))
     end
 
     def test_disallow_leading_short_hyphens
