@@ -3,7 +3,7 @@
 The `sprinkles-opts` library is a convenient Sorbet-aware way of doing
 argument parsing.
 
-## Basic Usage
+## Basic usage
 
 Create a class that is a subclass of `Spinkles::Opts::GetOpt`. Define fields and their types with `const`, analogously to [how you would with `T::Struct`](), but those fields can have `short:` and `long:` options that map to the flags used to provide them. You'll also have to provide a value for `program_name` by overriding an abstract method:
 
@@ -55,7 +55,7 @@ opts = PosOptions.parse(%w{this})
 #     -h, --help                       Prints this help
 ```
 
-## Optional Arguments
+## Optional arguments
 
 There are two ways of making arguments optional:
 - A field whose type is marked as `T.nilable` will implicitly be initialized as `nil` if it is not provided.
@@ -81,6 +81,41 @@ PosOptions.parse(%w{1})      # a is 1, b is nil, c is nil
 ```
 
 It is still an error to pass too few positional parameters (i.e. fewer than there are mandatory positional parameters) or too many (i.e. more than there are total positional parameters, mandatory and optional).
+
+## Repeated arguments
+
+Fields whose types are either `T::Array[...]` or `T::Set[...]` are implicitly treated as repeated fields.
+
+When a positional field has type `T::Array[...]` or `T::Set[...]`, then it is subject to two major restrictions:
+- It must be the last positional field specified, which also implies that it must be the _only_ repeated positional field.
+- None of the other fields can be optional.
+
+The second restriction is because of the ambiguity as to where extra fields go when choosing how to fill in optional fields, but may eventually be lifted in the future.
+
+When a positional field is `T::Array[...]` or `T::Set[...]`, then any trailing arguments will be added to the array contained in that field. For example:
+
+```ruby
+class PosArray < Sprinkles::Opts::GetOpt
+  const :a, Integer
+  const :b, T::Array[String]
+end
+
+PosArray.parse(%w{1})      # a is 1, b is []
+PosArray.parse(%w{1 2})    # a is 1, b is ['2']
+PosArray.parse(%w{1 2 3})  # a is 1, b is ['2', '3']
+```
+
+When a non-positional field is `T::Array[...]` or `T::Set[...]`, then it can be specified multiple times (in any order) to add to that collection. For example:
+
+```ruby
+class OptArray < Sprinkles::Opts::GetOpt
+  const :a, T::Array[Integer]
+end
+
+PosArray.parse(%w{})             # a is []
+PosArray.parse(%w{-a 5})         # a is [5]
+PosArray.parse(%w{-a 22 -a 33})  # a is [22, 33]
+```
 
 ## Help text and descriptions
 
