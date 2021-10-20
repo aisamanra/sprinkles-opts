@@ -41,6 +41,11 @@ module Sprinkles::Opts
         short.nil? && long.nil?
       end
 
+      sig { returns(T::Boolean) }
+      def repeated?
+        type.is_a?(T::Types::TypedArray)
+      end
+
       sig { params(default: String).returns(String) }
       def get_placeholder(default='VALUE')
         if type.is_a?(Class) && type < T::Enum
@@ -90,7 +95,7 @@ module Sprinkles::Opts
         description: String,
         without_accessors: TrueClass
       )
-        .returns(T.untyped)
+      .returns(T.untyped)
     end
     def self.const(
       name,
@@ -145,6 +150,15 @@ module Sprinkles::Opts
         @seen_optional_positional = T.let(true, T.nilable(TrueClass))
       end
 
+      if opt.positional? && @seen_repeated_positional
+        raise "The positional parameter `#{opt.name}` comes after the "\
+              "repeated parameter `#{@seen_repeated_positional.name}`"
+      end
+
+      if opt.positional? && opt.repeated?
+        @seen_repeated_positional = T.let(opt, T.nilable(Option))
+      end
+
       if opt.positional? && !opt.optional? && @seen_optional_positional
         # this means we're looking at a _mandatory_ positional field
         # coming after an _optional_ positional field. To make things
@@ -168,6 +182,8 @@ module Sprinkles::Opts
         other_types = type.types.to_set - [T::Utils.coerce(NilClass)]
         return false if other_types.size > 1
         return valid_type?(other_types.first)
+      elsif type.is_a?(T::Types::TypedArray)
+        return valid_type?(type.type)
       end
 
       # otherwise we probably don't handle it

@@ -109,6 +109,17 @@ module Sprinkles
       assert(msg.message.include?('after the optional field(s) `foo`'))
     end
 
+    def test_only_one_trailing_positional
+      msg = assert_raises(RuntimeError) do
+        Class.new(Sprinkles::Opts::GetOpt) do
+          T.unsafe(self).const(:first, T::Array[String])
+          T.unsafe(self).const(:second, T::Array[String])
+        end
+      end
+      msg = T.cast(msg, RuntimeError)
+      assert(msg.message.include?('The positional parameter `second` comes after the repeated parameter `first`'))
+    end
+
     class RichTypes < Sprinkles::Opts::GetOpt
       sig { override.returns(String) }
       def self.program_name
