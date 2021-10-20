@@ -41,6 +41,11 @@ module Sprinkles::Opts
         short.nil? && long.nil?
       end
 
+      sig { returns(T::Boolean) }
+      def repeated?
+        type.is_a?(T::Types::TypedArray) || type.is_a?(T::Types::TypedSet)
+      end
+
       sig { params(default: String).returns(String) }
       def get_placeholder(default='VALUE')
         if type.is_a?(Class) && type < T::Enum
@@ -90,7 +95,7 @@ module Sprinkles::Opts
         description: String,
         without_accessors: TrueClass
       )
-        .returns(T.untyped)
+      .returns(T.untyped)
     end
     def self.const(
       name,
@@ -145,6 +150,20 @@ module Sprinkles::Opts
         @seen_optional_positional = T.let(true, T.nilable(TrueClass))
       end
 
+      if opt.positional? && @seen_repeated_positional
+        raise "The positional parameter `#{opt.name}` comes after the "\
+              "repeated parameter `#{@seen_repeated_positional.name}`"
+      end
+
+      if opt.positional? && opt.repeated?
+        if @seen_optional_positional
+          raise "The repeated parameter `#{opt.name}` comes after an "\
+                "optional parameter."
+        end
+
+        @seen_repeated_positional = T.let(opt, T.nilable(Option))
+      end
+
       if opt.positional? && !opt.optional? && @seen_optional_positional
         # this means we're looking at a _mandatory_ positional field
         # coming after an _optional_ positional field. To make things
@@ -168,6 +187,8 @@ module Sprinkles::Opts
         other_types = type.types.to_set - [T::Utils.coerce(NilClass)]
         return false if other_types.size > 1
         return valid_type?(other_types.first)
+      elsif type.is_a?(T::Types::TypedArray) || type.is_a?(T::Types::TypedSet)
+        return valid_type?(type.type)
       end
 
       # otherwise we probably don't handle it
@@ -200,7 +221,7 @@ module Sprinkles::Opts
       end
     end
 
-    sig { params(values: T::Hash[Symbol, String]).returns(T.attached_class) }
+    sig { params(values: T::Hash[Symbol, T::Array[String]]).returns(T.attached_class) }
     private_class_method def self.build_config(values)
       o = new
       serialized = {}
@@ -208,11 +229,20 @@ module Sprinkles::Opts
         if field.type == T::Boolean
           default = false
           default = field.factory&.call if !field.factory.nil?
-          v = !!values.fetch(field.name, default)
+          v = !!values.fetch(field.name, [default]).fetch(0)
         elsif values.include?(field.name)
-          val = values.fetch(field.name)
           begin
-            v = Sprinkles::Opts::GetOpt.convert_str(val, field.type)
+            if !field.repeated?
+              val = values.fetch(field.name).fetch(0)
+              v = Sprinkles::Opts::GetOpt.convert_str(val, field.type)
+            else
+              v = values.fetch(field.name).map do |val|
+                Sprinkles::Opts::GetOpt.convert_str(val, field.type.type)
+              end
+              # we allow both arrays and sets but we use arrays
+              # internally, so convert to a set just in case
+              v = v.to_set if field.type.is_a?(T::Types::TypedSet)
+            end
           rescue KeyError => exn
             usage!("Invalid value `#{val}` for field `#{field.name}`:\n  #{exn.message}")
           end
@@ -220,6 +250,12 @@ module Sprinkles::Opts
           v = T.must(field.factory).call
         elsif field.optional?
           v = nil
+        elsif field.repeated?
+          if field.type.is_a?(T::Types::TypedArray)
+            v = []
+          else
+            v = Set.new
+          end
         else
           usage!("Expected a value for `#{field.name}`")
         end
@@ -230,19 +266,30 @@ module Sprinkles::Opts
       o
     end
 
-    sig { params(argv: T::Array[String]).returns(T::Hash[Symbol, String]) }
+    sig { params(argv: T::Array[String]).returns(T::Hash[Symbol, T::Array[String]]) }
     private_class_method def self.match_positional_fields(argv)
-      pos_fields = fields.select(&:positional?)
+      pos_fields = fields.select(&:positional?).reject(&:repeated?)
       total_positional = pos_fields.size
       min_positional = total_positional - pos_fields.count(&:optional?)
 
-      usage!("Too many arguments!") if argv.size > total_positional
-      usage!("Not enough arguments!") if argv.size < min_positional
+      pos_values = T::Hash[Symbol, T::Array[String]].new
 
-      pos_values = T::Hash[Symbol, String].new
+      usage!("Not enough arguments!") if argv.size < min_positional
+      if argv.size > total_positional
+        # we only want to warn about too many args if there isn't a
+        # repeated arg to grab them
+        usage!("Too many arguments!") if !fields.select(&:positional?).any?(&:repeated?)
+
+        # we verify on construction that there's at most one
+        # positional repeated field, and we don't intermingle repeated
+        # and optional fields
+        rest = T.must(fields.find {|f| f.positional? && f.repeated?})
+        pos_values[rest.name] = argv.drop(total_positional)
+      end
+
       pos_fields.zip(argv).each do |field, arg|
         next if arg.nil?
-        pos_values[field.name] = arg
+        pos_values[field.name] = [arg]
       end
 
       pos_values
@@ -298,7 +345,7 @@ module Sprinkles::Opts
       # we're going to destructively modify this
       argv = argv.clone
 
-      values = T::Hash[Symbol, String].new
+      values = T::Hash[Symbol, T::Array[String]].new
       parser = OptionParser.new do |opts|
         @opts = T.let(opts, T.nilable(OptionParser))
         opts.banner = "Usage: #{program_name} #{cmdline}"
@@ -309,7 +356,11 @@ module Sprinkles::Opts
         fields.each do |field|
           next if field.positional?
           opts.on(*field.optparse_args) do |v|
-            values[field.name] = v
+            if field.repeated?
+              (values[field.name] ||= []) << v
+            else
+              values[field.name] = [v]
+            end
           end
         end
       end.parse!(argv)

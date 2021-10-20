@@ -97,6 +97,71 @@ module Sprinkles
       assert(msg.include?('Too many arguments'))
     end
 
+    class ArrayOptions < Sprinkles::Opts::GetOpt
+      const :x, T::Array[String], short: 'x'
+      const :y, T::Array[Integer], short: 'y'
+    end
+
+    def test_array_options
+      opts = ArrayOptions.parse(%w[-x one -x two])
+      assert_equal(['one', 'two'], opts.x)
+      assert_equal([], opts.y)
+
+      opts = ArrayOptions.parse(%w[-y 2 -y 7])
+      assert_equal([], opts.x)
+      assert_equal([2, 7], opts.y)
+
+      opts = ArrayOptions.parse(%w[-x this -y 22 -y 33 -x that])
+      assert_equal(['this', 'that'], opts.x)
+      assert_equal([22, 33], opts.y)
+    end
+
+    class ArrayPositional < Sprinkles::Opts::GetOpt
+      const :first, String
+      const :second, T::Array[Symbol]
+    end
+
+    def test_array_positional_params
+      opts = ArrayPositional.parse(%w[one])
+      assert_equal('one', opts.first)
+      assert_equal([], opts.second)
+
+      opts = ArrayPositional.parse(%w[one two])
+      assert_equal('one', opts.first)
+      assert_equal([:two], opts.second)
+
+      opts = ArrayPositional.parse(%w[one two three])
+      assert_equal('one', opts.first)
+      assert_equal([:two, :three], opts.second)
+
+      opts = ArrayPositional.parse(%w[one two three four five])
+      assert_equal('one', opts.first)
+      assert_equal([:two, :three, :four, :five], opts.second)
+    end
+
+    class SetPositional < Sprinkles::Opts::GetOpt
+      const :first, String
+      const :second, T::Set[Symbol]
+    end
+
+    def test_set_positional_params
+      opts = SetPositional.parse(%w[one])
+      assert_equal('one', opts.first)
+      assert_equal(Set[], opts.second)
+
+      opts = SetPositional.parse(%w[one two])
+      assert_equal('one', opts.first)
+      assert_equal(Set[:two], opts.second)
+
+      opts = SetPositional.parse(%w[one two three])
+      assert_equal('one', opts.first)
+      assert_equal(Set[:two, :three], opts.second)
+
+      opts = SetPositional.parse(%w[one two three four five])
+      assert_equal('one', opts.first)
+      assert_equal(Set[:two, :three, :four, :five], opts.second)
+    end
+
     def test_all_mandatory_first
       msg = assert_raises(RuntimeError) do
         Class.new(Sprinkles::Opts::GetOpt) do
@@ -108,6 +173,38 @@ module Sprinkles
       assert(msg.message.include?('`bar` is a mandatory positional field'))
       assert(msg.message.include?('after the optional field(s) `foo`'))
     end
+
+    def test_only_one_trailing_positional
+      msg = assert_raises(RuntimeError) do
+        Class.new(Sprinkles::Opts::GetOpt) do
+          T.unsafe(self).const(:a1, T::Array[String])
+          T.unsafe(self).const(:a2, String)
+        end
+      end
+      msg = T.cast(msg, RuntimeError)
+      assert_match(/The positional parameter `a2` comes after the repeated parameter `a1`/, msg.message)
+
+      msg = assert_raises(RuntimeError) do
+        Class.new(Sprinkles::Opts::GetOpt) do
+          T.unsafe(self).const(:s1, T::Set[String])
+          T.unsafe(self).const(:s2, String)
+        end
+      end
+      msg = T.cast(msg, RuntimeError)
+      assert_match(/The positional parameter `s2` comes after the repeated parameter `s1`/, msg.message)
+    end
+
+    def test_no_mixing_positional_and_optional
+      msg = assert_raises(RuntimeError) do
+        Class.new(Sprinkles::Opts::GetOpt) do
+          T.unsafe(self).const(:a1, T.nilable(String))
+          T.unsafe(self).const(:a2, T::Array[String])
+        end
+      end
+      msg = T.cast(msg, RuntimeError)
+      assert_match(/The repeated parameter `a2` comes after an optional parameter/, msg.message)
+    end
+
 
     class RichTypes < Sprinkles::Opts::GetOpt
       sig { override.returns(String) }
@@ -126,6 +223,7 @@ module Sprinkles
       assert_equal(52, opts.my_integer)
       assert_equal(2.3, opts.my_float)
     end
+
 
     class Optional < Sprinkles::Opts::GetOpt
       sig { override.returns(String) }
@@ -210,6 +308,7 @@ module Sprinkles
       end
       assert(msg.include?('key not found: "seventeen"'))
     end
+
 
     def test_disallow_leading_short_hyphens
       msg = assert_raises(RuntimeError) do
