@@ -54,6 +54,7 @@ module Sprinkles::Opts
           possible_values = type.values.map(&:serialize).join("|")
           return "<#{possible_values}>"
         end
+
         placeholder || default
       end
 
@@ -317,6 +318,8 @@ module Sprinkles::Opts
         field_name = field.get_placeholder(field.name.to_s.upcase)
         if field.optional?
           cmd_line << "[#{field_name}]"
+        elsif field.repeated?
+          cmd_line << "[#{field_name} ...]"
         else
           cmd_line << field_name
         end
@@ -324,13 +327,24 @@ module Sprinkles::Opts
       # next, the non-positional but mandatory flags
       # (leaving the optional flags for the other help)
       fields.each do |field|
-        next if field.positional?
-        next if field.optional?
+        next if field.positional? || field.optional? || field.repeated?
         field_count += 1
         if field.long
           cmd_line << "--#{field.long}=#{field.get_placeholder}"
         else
           cmd_line << "-#{field.short}#{field.get_placeholder}"
+        end
+      end
+
+      # then the repeated fields, which the special `...` to denote
+      # their repetition
+      fields.each do |field|
+        next if !field.repeated?
+        field_count += 1
+        if field.long
+          cmd_line << "[--#{field.long}=#{field.get_placeholder} ...]"
+        else
+          cmd_line << "[-#{field.short}#{field.get_placeholder} ...]"
         end
       end
 
