@@ -139,6 +139,29 @@ module Sprinkles
       assert_equal([:two, :three, :four, :five], opts.second)
     end
 
+    class SetPositional < Sprinkles::Opts::GetOpt
+      const :first, String
+      const :second, T::Set[Symbol]
+    end
+
+    def test_set_positional_params
+      opts = SetPositional.parse(%w[one])
+      assert_equal('one', opts.first)
+      assert_equal(Set[], opts.second)
+
+      opts = SetPositional.parse(%w[one two])
+      assert_equal('one', opts.first)
+      assert_equal(Set[:two], opts.second)
+
+      opts = SetPositional.parse(%w[one two three])
+      assert_equal('one', opts.first)
+      assert_equal(Set[:two, :three], opts.second)
+
+      opts = SetPositional.parse(%w[one two three four five])
+      assert_equal('one', opts.first)
+      assert_equal(Set[:two, :three, :four, :five], opts.second)
+    end
+
     def test_all_mandatory_first
       msg = assert_raises(RuntimeError) do
         Class.new(Sprinkles::Opts::GetOpt) do

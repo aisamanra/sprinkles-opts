@@ -239,6 +239,9 @@ module Sprinkles::Opts
               v = values.fetch(field.name).map do |val|
                 Sprinkles::Opts::GetOpt.convert_str(val, field.type.type)
               end
+              # we allow both arrays and sets but we use arrays
+              # internally, so convert to a set just in case
+              v = v.to_set if field.type.is_a?(T::Types::TypedSet)
             end
           rescue KeyError => exn
             usage!("Invalid value `#{val}` for field `#{field.name}`:\n  #{exn.message}")
@@ -248,7 +251,11 @@ module Sprinkles::Opts
         elsif field.optional?
           v = nil
         elsif field.repeated?
-          v = []
+          if field.type.is_a?(T::Types::TypedArray)
+            v = []
+          else
+            v = Set.new
+          end
         else
           usage!("Expected a value for `#{field.name}`")
         end
