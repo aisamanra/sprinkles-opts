@@ -97,6 +97,25 @@ module Sprinkles
       assert(msg.include?('Too many arguments'))
     end
 
+    class ArrayPositional < Sprinkles::Opts::GetOpt
+      const :first, String
+      const :second, T::Array[Symbol]
+    end
+
+    def test_array_positional_params
+      opts = ArrayPositional.parse(%w[one])
+      assert_equal('one', opts.first)
+      assert_equal([], opts.second)
+
+      opts = ArrayPositional.parse(%w[one two])
+      assert_equal('one', opts.first)
+      assert_equal([:two], opts.second)
+
+      opts = ArrayPositional.parse(%w[one two three])
+      assert_equal('one', opts.first)
+      assert_equal([:two, :three], opts.second)
+    end
+
     def test_all_mandatory_first
       msg = assert_raises(RuntimeError) do
         Class.new(Sprinkles::Opts::GetOpt) do
@@ -112,12 +131,21 @@ module Sprinkles
     def test_only_one_trailing_positional
       msg = assert_raises(RuntimeError) do
         Class.new(Sprinkles::Opts::GetOpt) do
-          T.unsafe(self).const(:first, T::Array[String])
-          T.unsafe(self).const(:second, T::Array[String])
+          T.unsafe(self).const(:a1, T::Array[String])
+          T.unsafe(self).const(:a2, String)
         end
       end
       msg = T.cast(msg, RuntimeError)
-      assert(msg.message.include?('The positional parameter `second` comes after the repeated parameter `first`'))
+      assert(msg.message.include?('The positional parameter `a2` comes after the repeated parameter `a1`'))
+
+      msg = assert_raises(RuntimeError) do
+        Class.new(Sprinkles::Opts::GetOpt) do
+          T.unsafe(self).const(:s1, T::Set[String])
+          T.unsafe(self).const(:s2, String)
+        end
+      end
+      msg = T.cast(msg, RuntimeError)
+      assert(msg.message.include?('The positional parameter `s2` comes after the repeated parameter `s1`'))
     end
 
     class RichTypes < Sprinkles::Opts::GetOpt
