@@ -4,6 +4,8 @@
 require 'optparse'
 require 'sorbet-runtime'
 
+require 'set'
+
 module Sprinkles; module Opts; end; end
 
 module Sprinkles::Opts
@@ -360,7 +362,7 @@ module Sprinkles::Opts
       argv = argv.clone
 
       values = T::Hash[Symbol, T::Array[String]].new
-      parser = OptionParser.new do |opts|
+      OptionParser.new do |opts|
         @opts = T.let(opts, T.nilable(OptionParser))
         opts.banner = "Usage: #{program_name} #{cmdline}"
         opts.on('-h', '--help', 'Print this help') do
@@ -369,7 +371,7 @@ module Sprinkles::Opts
 
         fields.each do |field|
           next if field.positional?
-          opts.on(*field.optparse_args) do |v|
+          T.unsafe(opts).on(*field.optparse_args) do |v|
             if field.repeated?
               (values[field.name] ||= []) << v
             else

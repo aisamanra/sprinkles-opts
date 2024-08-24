@@ -14,7 +14,7 @@ Gem::Specification.new do |spec|
   spec.description   = 'A Sorbet-driven library for parsing command-line options'
   spec.homepage      = 'https://github.com/aisamanra/sprinkles-opts'
   spec.license       = 'MIT'
-  spec.required_ruby_version = '>= 2.5', '< 3'
+  spec.required_ruby_version = '>= 2.7', '< 3.4'
   spec.metadata = {
     'source_code_uri' => 'https://github.com/aisamanra/sprinkles-opts',
   }
@@ -27,11 +27,12 @@ Gem::Specification.new do |spec|
 
   spec.require_paths = ['lib']
 
-  spec.add_development_dependency 'bundler', '~> 1.17'
+  spec.add_development_dependency 'bundler', '~> 2.5'
   spec.add_development_dependency 'minitest', '~> 5.0'
   spec.add_development_dependency 'rake', '~> 10.0'
 
   spec.add_development_dependency 'rubocop'
   spec.add_development_dependency 'sorbet'
+  spec.add_development_dependency 'tapioca'
   spec.add_dependency 'sorbet-runtime'
 end
