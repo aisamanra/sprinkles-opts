@@ -371,7 +371,7 @@ module Sprinkles::Opts
 
         fields.each do |field|
           next if field.positional?
-          opts.on(*field.optparse_args) do |v|
+          T.unsafe(opts).on(*field.optparse_args) do |v|
             if field.repeated?
               (values[field.name] ||= []) << v
             else
