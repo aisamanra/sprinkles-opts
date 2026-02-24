@@ -4,6 +4,9 @@
 require "test_helper"
 require "sprinkles/opts"
 
+require "date"
+require "uri"
+
 module Sprinkles
   class GetOptTest < Minitest::Test
     extend T::Sig
@@ -219,13 +222,17 @@ module Sprinkles
       const :my_symbol, Symbol, short: "s", long: "symbol"
       const :my_integer, Integer, short: "i", long: "integer"
       const :my_float, Float, short: "f", long: "float"
+      const :my_date, Date, short: "d", long: "date"
+      const :my_uri, URI, short: "u", long: "uri"
     end
 
     def test_rich_types
-      opts = RichTypes.parse(["-s", "foo", "-i", "52", "-f", "2.3"])
+      opts = RichTypes.parse(%w{-s foo -i 52 -f 2.3 -d 2022-03-04 -u https://homestarrunner.com})
       assert_equal(:foo, opts.my_symbol)
       assert_equal(52, opts.my_integer)
-      assert_equal(2.3, opts.my_float)
+      assert_in_epsilon(2.3, opts.my_float)
+      assert_equal(DateTime.new(2022, 03, 04), opts.my_date)
+      assert_equal(URI::HTTPS.build(host: "homestarrunner.com", path: "/"), opts.my_uri)
     end
 
     class Optional < Sprinkles::Opts::GetOpt
@@ -312,7 +319,36 @@ module Sprinkles
         opts = OptsWithEnum.parse(%w[--value=seventeen])
       end
 
-      assert(msg.include?("key not found: \"seventeen\""))
+      assert_includes(msg, "cannot parse \"seventeen\" as Sprinkles::GetOptTest::MyEnum")
+    end
+
+    class OptsWithUnion < Sprinkles::Opts::GetOpt
+      sig { override.returns(String) }
+      def self.program_name
+        "opts-with-union"
+      end
+
+      const :foo, T.any(Integer, MyEnum, String), short: "f"
+      const :bar, T.any(Integer, Float), short: "b"
+    end
+
+    def test_opts_with_union
+      opts = OptsWithUnion.parse(%w[-f 22 -b 0])
+      assert_equal(22, opts.foo)
+      assert_equal(0, opts.bar)
+
+      opts = OptsWithUnion.parse(%w[-f two -b 3.14])
+      assert_equal(MyEnum::Two, opts.foo)
+      assert_in_epsilon(opts.bar, 3.14)
+
+      opts = OptsWithUnion.parse(%w[-f whatever -b 33])
+      assert_equal("whatever", opts.foo)
+      assert_equal(33, opts.bar)
+
+      msg = capture_usage do
+        opts = OptsWithUnion.parse(%w[-f 0 -b nothing])
+      end
+      assert_includes(msg, "cannot be parsed as either Integer or Float")
     end
 
     def test_disallow_leading_short_hyphens

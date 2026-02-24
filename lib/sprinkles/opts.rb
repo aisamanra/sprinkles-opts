@@ -39,6 +39,11 @@ module Sprinkles
       class InternalError < Exception
       end
 
+      # A `ParsingError` represents a failure to turn a command line
+      # into a reasonable `GetOpt` value.
+      class ParsingError < Exception
+      end
+
       extend T::Sig
       extend T::Helpers
       abstract!
@@ -289,12 +294,14 @@ module Sprinkles
         # true if the type is one of the valid types
         return true if type == String || type == Symbol || type == Integer || type == Float || type == T::Boolean
         # allow enumeration types
+        return true if ::Object.const_defined?(:Date) && type == Date
+        return true if ::Object.const_defined?(:DateTime) && type == DateTime
+        return true if ::Object.const_defined?(:URI) && type == URI
         return true if type.is_a?(Class) && type < T::Enum
         # true if it's a nilable valid type
         if type.is_a?(T::Types::Union)
           other_types = type.types.to_set - [T::Utils.coerce(NilClass)]
-          return false if other_types.size > 1
-          return valid_type?(other_types.first)
+          return other_types.all? { |t| valid_type?(t) }
         elsif type.is_a?(T::Types::TypedArray) || type.is_a?(T::Types::TypedSet)
           return valid_type?(type.type)
         end
@@ -310,20 +317,65 @@ module Sprinkles
           # Right now, the assumption is that this is mostly used for
           # `T.nilable`, but with a bit of work we maybe could support
           # other kinds of unions
-          possible_types = type.types.to_set - [T::Utils.coerce(NilClass)]
-          raise InternalError.new("TODO: generic union types") if possible_types.size > 1
+          possible_types = type.types - [T::Utils.coerce(NilClass)]
+          errors = []
+          possible_types.each do |typ|
+            begin
+              return convert_str(value, typ)
+            rescue ParsingError => exn
+              errors << exn
+            end
+          end
 
-          convert_str(value, possible_types.first)
+          if possible_types.size == 1
+            raise errors.fetch(0)
+          elsif possible_types.size == 2
+            x, y = possible_types.to_a
+            raise ParsingError.new("Argument `#{value}` cannot be parsed as either #{x} or #{y}")
+          else
+            types = possible_types.map(&:to_s).join(", ")
+            raise ParsingError.new("Argument `#{value}` cannot be parsed as any of #{types}")
+          end
         elsif type.is_a?(Class) && type < T::Enum
-          type.deserialize(value)
+          begin
+            type.deserialize(value)
+          rescue KeyError
+            raise ParsingError.new("cannot parse \"#{value}\" as #{type}")
+          end
         elsif type == String
           value
         elsif type == Symbol
           value.to_sym
         elsif type == Integer
-          value.to_i
+          begin
+            Integer(value)
+          rescue ArgumentError
+            raise ParsingError.new("cannot parse \"#{value}\" as Integer")
+          end
         elsif type == Float
-          value.to_f
+          begin
+            Float(value)
+          rescue ArgumentError
+            raise ParsingError.new("cannot parse \"#{value}\" as Float")
+          end
+        elsif Object.const_defined?(:Date) && type == Date
+          begin
+            Date.parse(value)
+          rescue Date::Error
+            raise ParsingError.new("cannot parse \"#{value}\" as Date")
+          end
+        elsif Object.const_defined?(:DateTime) && type == DateTime
+          begin
+            DateTime.parse(value)
+          rescue Date::Error
+            raise ParsingError.new("cannot parse \"#{value}\" as DateTime")
+          end
+        elsif Object.const_defined?(:URI) && type == URI
+          begin
+            URI.parse(value)
+          rescue URI::InvalidURIError
+            raise ParsingError.new("cannot parse \"#{value}\" as URI")
+          end
         else
           raise InternalError.new("Don't know how to convert a string to #{type}")
         end
@@ -352,7 +404,7 @@ module Sprinkles
                 v = v.to_set if field.type.is_a?(T::Types::TypedSet)
               end
 
-            rescue KeyError => exn
+            rescue ParsingError => exn
               usage!("Invalid value `#{val}` for field `#{field.name}`:\n  #{exn.message}")
             end
           elsif !field.factory.nil?
