@@ -52,6 +52,8 @@ opts = PosOptions.parse(%w{this})
 #     -h, --help                       Prints this help
 ```
 
+In addition to only providing `const` (and therefore not allowing writer methods for the relevant fields) the resulting objects has been frozen and cannot be mutated at all, even by other methods. The intended use of a `GetOpt` subclass is as a pure data container; any other logic should be implemented as a wrapper around the container.
+
 ## Optional arguments
 
 There are two ways of making arguments optional:

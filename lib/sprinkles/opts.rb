@@ -293,10 +293,12 @@ module Sprinkles
         type = type.raw_type if type.is_a?(T::Types::Simple)
         # true if the type is one of the valid types
         return true if type == String || type == Symbol || type == Integer || type == Float || type == T::Boolean
-        # allow enumeration types
+        # check for valid types which we may not want to load eagerly
         return true if ::Object.const_defined?(:Date) && type == Date
         return true if ::Object.const_defined?(:DateTime) && type == DateTime
         return true if ::Object.const_defined?(:URI) && type == URI
+        return true if ::Object.const_defined?(:Pathname) && type == Pathname
+        # allow enumeration types
         return true if type.is_a?(Class) && type < T::Enum
         # true if it's a nilable valid type
         if type.is_a?(T::Types::Union)
@@ -375,6 +377,12 @@ module Sprinkles
             URI.parse(value)
           rescue URI::InvalidURIError
             raise ParsingError.new("cannot parse \"#{value}\" as URI")
+          end
+        elsif Object.const_defined?(:Pathname) && type == Pathname
+          begin
+            Pathname.new(value)
+          rescue ArgumentError
+            raise ParsingError.new("cannot parse \"#{value}\" as Pathname")
           end
         else
           raise InternalError.new("Don't know how to convert a string to #{type}")
