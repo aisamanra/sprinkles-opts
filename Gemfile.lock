@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    sprinkles-opts (0.1.0)
+    sprinkles-opts (0.2.0)
       sorbet-runtime
 
 GEM
@@ -133,7 +133,7 @@ CHECKSUMS
   sorbet-static (0.6.12959-x86_64-linux) sha256=d1bc8343f237d3416ad857b44cdba1b4e95d7bd52fc2ac131030ad045a0bc2cb
   sorbet-static-and-runtime (0.6.12959) sha256=9e0873cf891b4d1a161674d0f4ffe36cd412d76455cd1e01a8b07081aaa523a1
   spoom (1.7.11) sha256=4e27384af6d3fde5aadc0287c51e6f76c0802259cbb3b6a67603bf718352f4cf
-  sprinkles-opts (0.1.0)
+  sprinkles-opts (0.2.0)
   tapioca (0.17.10) sha256=880a682ca8314f798dd09e9f104134fbf1a713c13be51f7dd4741dd434e6471b
   thor (1.5.0) sha256=e3a9e55fe857e44859ce104a84675ab6e8cd59c650a49106a05f55f136425e73
   tsort (0.2.0) sha256=9650a793f6859a43b6641671278f79cfead60ac714148aabe4e3f0060480089f

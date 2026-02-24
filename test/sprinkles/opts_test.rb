@@ -164,49 +164,49 @@ module Sprinkles
     end
 
     def test_all_mandatory_first
-      msg = assert_raises(RuntimeError) do
+      msg = assert_raises(Opts::GetOpt::ValidationError) do
         Class.new(Sprinkles::Opts::GetOpt) do
           T.unsafe(self).const(:foo, T.nilable(String))
           T.unsafe(self).const(:bar, String)
         end
       end
 
-      msg = T.cast(msg, RuntimeError)
+      msg = T.cast(msg, Opts::GetOpt::ValidationError)
       assert(msg.message.include?("`bar` is a mandatory positional field"))
       assert(msg.message.include?("after the optional field(s) `foo`"))
     end
 
     def test_only_one_trailing_positional
-      msg = assert_raises(RuntimeError) do
+      msg = assert_raises(Opts::GetOpt::ValidationError) do
         Class.new(Sprinkles::Opts::GetOpt) do
           T.unsafe(self).const(:a1, T::Array[String])
           T.unsafe(self).const(:a2, String)
         end
       end
 
-      msg = T.cast(msg, RuntimeError)
+      msg = T.cast(msg, Opts::GetOpt::ValidationError)
       assert_match(/The positional parameter `a2` comes after the repeated parameter `a1`/, msg.message)
 
-      msg = assert_raises(RuntimeError) do
+      msg = assert_raises(Opts::GetOpt::ValidationError) do
         Class.new(Sprinkles::Opts::GetOpt) do
           T.unsafe(self).const(:s1, T::Set[String])
           T.unsafe(self).const(:s2, String)
         end
       end
 
-      msg = T.cast(msg, RuntimeError)
+      msg = T.cast(msg, Opts::GetOpt::ValidationError)
       assert_match(/The positional parameter `s2` comes after the repeated parameter `s1`/, msg.message)
     end
 
     def test_no_mixing_positional_and_optional
-      msg = assert_raises(RuntimeError) do
+      msg = assert_raises(Opts::GetOpt::ValidationError) do
         Class.new(Sprinkles::Opts::GetOpt) do
           T.unsafe(self).const(:a1, T.nilable(String))
           T.unsafe(self).const(:a2, T::Array[String])
         end
       end
 
-      msg = T.cast(msg, RuntimeError)
+      msg = T.cast(msg, Opts::GetOpt::ValidationError)
       assert_match(/The repeated parameter `a2` comes after an optional parameter/, msg.message)
     end
 
@@ -316,47 +316,47 @@ module Sprinkles
     end
 
     def test_disallow_leading_short_hyphens
-      msg = assert_raises(RuntimeError) do
+      msg = assert_raises(Opts::GetOpt::ValidationError) do
         Class.new(Sprinkles::Opts::GetOpt) do
           T.unsafe(self).const(:foo, String, short: "-f")
         end
       end
 
-      msg = T.cast(msg, RuntimeError)
+      msg = T.cast(msg, Opts::GetOpt::ValidationError)
       assert(msg.message.include?("Do not start options with -"))
     end
 
     def test_disallow_leading_long_hyphens
-      msg = assert_raises(RuntimeError) do
+      msg = assert_raises(Opts::GetOpt::ValidationError) do
         Class.new(Sprinkles::Opts::GetOpt) do
           T.unsafe(self).const(:foo, String, long: "--foo")
         end
       end
 
-      msg = T.cast(msg, RuntimeError)
+      msg = T.cast(msg, Opts::GetOpt::ValidationError)
       assert(msg.message.include?("Do not start options with -"))
     end
 
     def test_disallow_help
-      msg = assert_raises(RuntimeError) do
+      msg = assert_raises(Opts::GetOpt::ValidationError) do
         Class.new(Sprinkles::Opts::GetOpt) do
           T.unsafe(self).const(:foo, String, short: "h")
         end
       end
 
-      msg = T.cast(msg, RuntimeError)
+      msg = T.cast(msg, Opts::GetOpt::ValidationError)
       assert(msg.message.include?("The options `-h` and `--help` are reserved"))
     end
 
     def test_disallow_bad_types
-      msg = assert_raises(RuntimeError) do
+      msg = assert_raises(Opts::GetOpt::ValidationError) do
         Class.new(Sprinkles::Opts::GetOpt) do
           T.unsafe(self).const(:foo, Proc, long: "foo")
         end
       end
 
-      msg = T.cast(msg, RuntimeError)
-      assert_equal("`Proc` is not a valid parameter type", msg.message)
+      msg = T.cast(msg, Opts::GetOpt::ValidationError)
+      assert_equal("In definition of foo: `Proc` is not a valid parameter type", msg.message)
     end
   end
 end
