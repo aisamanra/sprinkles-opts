@@ -5,16 +5,16 @@ argument parsing.
 
 ## Basic usage
 
-Create a class that is a subclass of `Spinkles::Opts::GetOpt`. Define fields and their types with `const`, analogously to [how you would with `T::Struct`](), but those fields can have `short:` and `long:` options that map to the flags used to provide them. You'll also have to provide a value for `program_name` by overriding an abstract method:
+Create a class that is a subclass of `Spinkles::Opts::GetOpt`. Define fields and their types with `const`, analogously to [how you would with `T::Struct`](https://sorbet.org/docs/tstruct), but those fields can have `short:` and `long:` options that map to the comman-line options used to provide them. You may also provide a value for `program_name` by overriding an abstract method, which will otherwise default to `$PROGRAM_NAME`:
 
 ```ruby
 class MyOptions < Sprinkles::Opts::GetOpt
-  sig {override.returns(String)}
-  def self.program_name; "my-program"; end
+  sig { override.returns(String) }
+  def self.program_name = "my-program"
 
-  const :input, String, short: 'i', long: 'input'
-  const :num_iterations, Integer, short: 'n', placeholder: 'N'
-  const :verbose, T::Boolean, short: 'v', long: 'verbose', factory: -> {false}
+  const :input, String, short: "i", long: "input"
+  const :num_iterations, Integer, short: "n", placeholder: "N"
+  const :verbose, T::Boolean, short: "v", long: "verbose", factory: -> { false }
 end
 ```
 
@@ -22,7 +22,7 @@ You can then call `MyOptions.parse(ARGV)` in order to get a value of type `MyOpt
 
 ```ruby
 opts = MyOptions.parse(%w{-i foo -n 8 --verbose})
-assert_equal('foo', opts.input)
+assert_equal("foo", opts.input)
 assert_equal(8, opts.num_iterations)
 assert_equal(true, opts.verbose)
 ```
@@ -33,16 +33,13 @@ Fields without a `short:` or `long:` parameter will be understood to be position
 
 ```ruby
 class PosOptions < Sprinkles::Opts::GetOpt
-  sig {override.returns(String)}
-  def self.program_name; "positional-options"; end
-
   const :source, String
   const :destination, String
 end
 
 opts = PosOptions.parse(%w{this that})
-assert_equal('this', opts.source)
-assert_equal(that, opts.destination)
+assert_equal("'this", opts.source)
+assert_equal("that", opts.destination)
 ```
 
 Parsing will fail and exit the program with a usage statement if either too many or too few positional parameters are provided.
@@ -59,7 +56,7 @@ opts = PosOptions.parse(%w{this})
 
 There are two ways of making arguments optional:
 - A field whose type is marked as `T.nilable` will implicitly be initialized as `nil` if it is not provided.
-- A field can have a `factory:` which should be a lambda that will be called to initialize the field if the argument is not provided.
+- A field can have a `factory:` which should be a proc that will be called to initialize the field if the argument is not provided.
 
 Fields that are not `T.nilable` and do not have a `factory:` must be provided when parsing arguments.
 
@@ -67,9 +64,6 @@ For _positional_ arguments, there's currently an extra restriction: all mandator
 
 ```ruby
 class PosOptions < Sprinkles::Opts::GetOpt
-  sig {override.returns(String)}
-  def self.program_name; "positional-options"; end
-
   const :a, String
   const :b, T.nilable(String)
   const :c, T.nilable(String)
@@ -117,6 +111,33 @@ PosArray.parse(%w{-a 5})         # a is [5]
 PosArray.parse(%w{-a 22 -a 33})  # a is [22, 33]
 ```
 
+## Other data types
+
+Not all types are valid, and invalid types will cause a load-time exception. Basic Ruby types including `String`, `Symbol`, `Integer`, and `Float` are all valid field types, as well as a few gem-provided types like `Date` and `URI`. You can also provide a Sorbet `T::Enum` type and it will deserialize it from the provided value if possible.
+
+Additionally, you can use a `T.any` of multiple types, and arguments will use successive attempts at parsing, falling back on the later types if the provided string cannot be parsed as an earlier type. One note is that it will attempt parsing in the order of the `T.any`, but some types will always parse correctly: for example, if you have a field whose type is `T.any(String, URI)`, then the field will never actually be set to a `URI` because it's impossible to provide an invalid `String` value.
+
+```ruby
+class TrafficLight < T::Enum
+  enums do
+    Green = new("green")
+    Yellow = new("yellow")
+    Red = new("red")
+  end
+end
+
+class OtherValues < Sprinkles::Opts::GetOpt
+  const :num, Integer, short: "n"
+  const :date, Date, short: "d"
+  const :tl, TrafficLight, short: "t"
+end
+
+OtherValues.parse(%w{-d 2015-07-01 -n 33 -t yellow})
+# num is 22
+# date is Date.new(2015, 07, 01)
+# tl is TrafficLight::Yellow
+```
+
 ## Help text and descriptions
 
 The option names `-h` and `--help` are reserved, and when they are provided the program will print a usage panel and exit:
@@ -130,7 +151,6 @@ Usage: my-program --input=VALUE -nN
 ```
 
 Individual fields can customize their default placeholder text away from the default `VALUE` using the `placeholder:` argument, and can provide more extensive descriptions using the `description:` argument.
-
 
 ## Why sprinkles?
 

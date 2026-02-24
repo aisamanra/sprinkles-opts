@@ -422,10 +422,11 @@ module Sprinkles
           end
 
           o.instance_variable_set("@#{field.name}", v)
-          serialized[field.name] = v
+          serialized[field.name] = v.freeze
         end
 
         o.define_singleton_method(:_serialize) { serialized }
+        o.freeze
         o
       end
 
