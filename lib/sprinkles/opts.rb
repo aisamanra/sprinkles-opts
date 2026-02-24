@@ -5,21 +5,37 @@ require "optparse"
 require "set"
 require "sorbet-runtime"
 
+# :nodoc:
 module Sprinkles
+  # :nodoc:
   module Opts
+    # @abstract A class that inherits from `GetOpt` represents a value
+    #   derived from command-like arguments, where how to extract each
+    #   field is determined by the extra parameters given on the field
+    #   definition. Subclass this and use one or more calls to `#const`
+    #   to define fields.
     class GetOpt
+      # A `ValiationError` represents a user error in defining a
+      # `GetOpt` field.
       class ValidationError < Exception
         extend T::Sig
+
         sig { params(message: String, name: Symbol).void }
+        # @param [String] message the exception message
+        # @param [Symbol] name the field being defined when this error was raised
         def initialize(message, name)
           @name = name
           super("In definition of #{name}: #{message}")
         end
 
         sig { returns(Symbol) }
+        # @return [Symbol] the name of the field being defined when this error was
+        #   raised.
         attr_reader :name
       end
 
+      # An `InternalError` represents an internal invariant having
+      # been violated. This should generally not be seen.
       class InternalError < Exception
       end
 
@@ -28,6 +44,8 @@ module Sprinkles
       abstract!
 
       sig { overridable.returns(String) }
+      # The name of the program, as written in the help output. This
+      # defaults to `$PROGRAM_NAME` but can be overridden if desired.
       def self.program_name
         $PROGRAM_NAME
       end
@@ -93,7 +111,7 @@ module Sprinkles
       # props methods. (we're also not allowing `prop` at all, only
       # `const`.)
       sig { params(rest: T.untyped).returns(T.untyped) }
-      def self.decorator(*rest)
+      private_class_method def self.decorator(*rest)
       end
 
       sig { returns(T::Array[Option]) }
@@ -115,6 +133,51 @@ module Sprinkles
         )
           .returns(T.untyped)
       end
+      # The `const(name, type, ...)` method will define an accessor
+      # method called `name` which contains a value of type `type`,
+      # and will be initialized when parsing the a command-like
+      # argument list.
+      #
+      # The logic of how to parse a given field is as follows:
+      #
+      # - If `short:` or `long:` are provided, then the field's value will be
+      #   derived from a flag.
+      # - If neither `short:` nor `long:` are provided, then the field's value
+      #   will be derived from positional parameters.
+      # - If a field is not provided, either because the field was defined by
+      #   flags which were not provided or because the field was positional and
+      #   not enough positional arguments were passed, then what happens is
+      #   determined by the following logic:
+      #     - If a `factory:` argument is provided, then it will initialize the
+      #       field with the result of calling the `factory:` proc.
+      #     - If the field has a `T.nilable` type, then it will default to `nil`.
+      #     - If the field has a `T::Array` or `T::Set` type, then it will default
+      #       to an empty array or set.
+      #     - Otherwise, it will raise an error.
+      #
+      # There are a few other special considerations for specific types:
+      # - If a field has the type `T::Boolean` and a `long:` option, then it will
+      #   also get a corresponding flag that starts with `--no-` which sets the
+      #   field to `false`.
+      # - If a field has the type `T::Array` or `T::Set` and defines a long or short
+      #   option, then that option can be provided multiple times and each invocation
+      #   will add to that array or set.
+      # - If a field has the type `T::Array` or `T::Set` and does not define any
+      #   options, then it must also be the last positional parameter, and all remaining
+      #   arguments will be added to that final array or set.
+      #
+      # @param [Symbol] name the name of the field to define
+      # @param [Type] type the type of the field
+      # @param [String] short the short option corresponding to this field
+      #   (without a leading hyphen.) This must be exactly one character long.
+      # @param [String] long the long option corresponding to this field
+      #   (without leading hyphens.)
+      # @param [Proc] factory a zero-argument proc used to initialize the
+      #   value of this field if it is not otherwise provided
+      # @param [String] placeholder the placeholder text to use in the
+      #   `--help` output for the argument of this field
+      # @param [String] description the description of this field as it
+      #   will appear in the `--help` output
       def self.const(
         name,
         type,
@@ -240,7 +303,7 @@ module Sprinkles
       end
 
       sig { params(value: String, type: T.untyped).returns(T.untyped) }
-      def self.convert_str(value, type)
+      private_class_method def self.convert_str(value, type)
         type = type.raw_type if type.is_a?(T::Types::Simple)
         if type.is_a?(T::Types::Union)
           # Right now, the assumption is that this is mostly used for
@@ -278,10 +341,10 @@ module Sprinkles
             begin
               if !field.repeated?
                 val = values.fetch(field.name).fetch(0)
-                v = Sprinkles::Opts::GetOpt.convert_str(val, field.type)
+                v = convert_str(val, field.type)
               else
                 v = values.fetch(field.name).map do |val|
-                  Sprinkles::Opts::GetOpt.convert_str(val, field.type.type)
+                  convert_str(val, field.type.type)
                 end
                 # we allow both arrays and sets but we use arrays
                 # internally, so convert to a set just in case
@@ -405,12 +468,16 @@ module Sprinkles
       end
 
       sig { params(argv: T::Array[String]).returns(T.attached_class) }
+      # Parse the provided argument array according to the logic
+      # encoded in the field declarations in this class.
+      #
+      # @param [T::Array[String]] argv the array of strings to parse
       def self.parse(argv = ARGV)
         # we're going to destructively modify this
         argv = argv.clone
 
         values = T::Hash[Symbol, T::Array[String]].new
-        parser = OptionParser
+        OptionParser
           .new do |opts|
             @opts = T.let(opts, T.nilable(OptionParser))
             opts.banner = "Usage: #{program_name} #{cmdline}"
@@ -435,6 +502,8 @@ module Sprinkles
 
         build_config(values)
       end
+
+      private_constant :Option
     end
   end
 end
