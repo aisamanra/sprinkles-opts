@@ -32,7 +32,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'rake'
 
   spec.add_development_dependency 'rubocop'
-  spec.add_development_dependency 'sorbet'
-  # spec.add_development_dependency 'tapioca', '> 0.17'
+  spec.add_development_dependency 'sorbet', '> 0.6'
   spec.add_dependency 'sorbet-runtime'
 end
