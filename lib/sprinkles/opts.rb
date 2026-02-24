@@ -1,10 +1,13 @@
 # typed: strict
 # frozen_string_literal: true
 
-require 'optparse'
-require 'sorbet-runtime'
+require "optparse"
+require "sorbet-runtime"
 
-module Sprinkles; module Opts; end; end
+module Sprinkles
+  module Opts
+  end
+end
 
 module Sprinkles::Opts
   class GetOpt
@@ -62,7 +65,7 @@ module Sprinkles::Opts
       end
 
       sig { params(default: String).returns(String) }
-      def get_placeholder(default='VALUE')
+      def get_placeholder(default = "VALUE")
         if type.is_a?(Class) && type < T::Enum
           # if the type is an enum, we can enumerate the possible
           # values in a rich way
@@ -83,6 +86,7 @@ module Sprinkles::Opts
           args << "-#{short}#{get_placeholder}" if short
           args << "--#{long}=#{get_placeholder}" if long
         end
+
         args << description if description
         args
       end
@@ -92,7 +96,8 @@ module Sprinkles::Opts
     # props methods. (we're also not allowing `prop` at all, only
     # `const`.)
     sig { params(rest: T.untyped).returns(T.untyped) }
-    def self.decorator(*rest); end
+    def self.decorator(*rest)
+    end
 
     sig { returns(T::Array[Option]) }
     private_class_method def self.fields
@@ -111,16 +116,16 @@ module Sprinkles::Opts
         description: String,
         without_accessors: TrueClass
       )
-      .returns(T.untyped)
+        .returns(T.untyped)
     end
     def self.const(
       name,
       type,
-      short: '',
-      long: '',
+      short: "",
+      long: "",
       factory: nil,
-      placeholder: '',
-      description: '',
+      placeholder: "",
+      description: "",
       without_accessors: true
     )
       # we don't want to let the user pass in nil explicitly, so the
@@ -147,20 +152,23 @@ module Sprinkles::Opts
 
     sig { params(opt: Option).void }
     private_class_method def self.validate!(opt)
-      if opt.short&.start_with?('-')
-        raise ValidationError.new('Do not start options with -', opt.name)
+      if opt.short&.start_with?("-")
+        raise ValidationError.new("Do not start options with -", opt.name)
       end
 
-      if opt.long&.start_with?('-')
-        raise ValidationError.new('Do not start options with -', opt.name)
+      if opt.long&.start_with?("-")
+        raise ValidationError.new("Do not start options with -", opt.name)
       end
 
-      if (opt.short == 'h') || (opt.long == 'help')
-        raise ValidationError.new(
-                "The options `-h` and `--help` are reserved by Sprinkles::Opts::GetOpt",
-                opt.name
-              )
+      if (opt.short == "h") || (opt.long == "help")
+        raise(
+          ValidationError.new(
+            "The options `-h` and `--help` are reserved by Sprinkles::Opts::GetOpt",
+            opt.name
+          )
+        )
       end
+
       if !valid_type?(opt.type)
         raise ValidationError.new("`#{opt.type}` is not a valid parameter type", opt.name)
       end
@@ -174,16 +182,24 @@ module Sprinkles::Opts
       end
 
       if opt.positional? && @seen_repeated_positional
-        raise ValidationError.new(
-         "The positional parameter `#{opt.name}` comes after the "\
-              "repeated parameter `#{@seen_repeated_positional.name}`", opt.name)
+        raise(
+          ValidationError.new(
+            "The positional parameter `#{opt.name}` comes after the " \
+              "repeated parameter `#{@seen_repeated_positional.name}`",
+            opt.name
+          )
+        )
       end
 
       if opt.positional? && opt.repeated?
         if @seen_optional_positional
-          raise ValidationError.new(
-                  "The repeated parameter `#{opt.name}` comes after an "\
-                "optional parameter.", opt.name)
+          raise(
+            ValidationError.new(
+              "The repeated parameter `#{opt.name}` comes after an " \
+                "optional parameter.",
+              opt.name
+            )
+          )
         end
 
         @seen_repeated_positional = T.let(opt, T.nilable(Option))
@@ -193,14 +209,16 @@ module Sprinkles::Opts
         # this means we're looking at a _mandatory_ positional field
         # coming after an _optional_ positional field. To make things
         # easy, we simply reject this case.
-        prev = fields.select {|f| f.positional? && f.optional?}
-        prev = prev.map {|f| "`#{f.name}`"}.to_a.join(", ")
+        prev = fields.select { |f| f.positional? && f.optional? }
+        prev = prev.map { |f| "`#{f.name}`" }.to_a.join(", ")
 
-        raise ValidationError.new(
-                "`#{opt.name}` is a mandatory positional field "\
-                "but it comes after the optional field(s) #{prev}",
-                opt.name
-              )
+        raise(
+          ValidationError.new(
+            "`#{opt.name}` is a mandatory positional field " \
+              "but it comes after the optional field(s) #{prev}",
+            opt.name
+          )
+        )
       end
     end
 
@@ -232,7 +250,7 @@ module Sprinkles::Opts
         # `T.nilable`, but with a bit of work we maybe could support
         # other kinds of unions
         possible_types = type.types.to_set - [T::Utils.coerce(NilClass)]
-        raise InternalError.new('TODO: generic union types') if possible_types.size > 1
+        raise InternalError.new("TODO: generic union types") if possible_types.size > 1
 
         convert_str(value, possible_types.first)
       elsif type.is_a?(Class) && type < T::Enum
@@ -272,6 +290,7 @@ module Sprinkles::Opts
               # internally, so convert to a set just in case
               v = v.to_set if field.type.is_a?(T::Types::TypedSet)
             end
+
           rescue KeyError => exn
             usage!("Invalid value `#{val}` for field `#{field.name}`:\n  #{exn.message}")
           end
@@ -288,10 +307,12 @@ module Sprinkles::Opts
         else
           usage!("Expected a value for `#{field.name}`")
         end
+
         o.instance_variable_set("@#{field.name}", v)
         serialized[field.name] = v
       end
-      o.define_singleton_method(:_serialize) {serialized}
+
+      o.define_singleton_method(:_serialize) { serialized }
       o
     end
 
@@ -312,7 +333,7 @@ module Sprinkles::Opts
         # we verify on construction that there's at most one
         # positional repeated field, and we don't intermingle repeated
         # and optional fields
-        rest = T.must(fields.find {|f| f.positional? && f.repeated?})
+        rest = T.must(fields.find { |f| f.positional? && f.repeated? })
         pos_values[rest.name] = argv.drop(total_positional)
       end
 
@@ -325,15 +346,17 @@ module Sprinkles::Opts
     end
 
     sig { params(msg: String).void }
-    private_class_method def self.usage!(msg='')
+    private_class_method def self.usage!(msg = "")
       if @opts.nil?
-      raise InternalError.new(
-              "Internal error: tried to call `usage!` before building option parser!"
-            )
+        raise(
+          InternalError.new(
+            "Internal error: tried to call `usage!` before building option parser!"
+          )
+        )
       end
 
-      puts msg if !msg.empty?
-      puts @opts
+      puts(msg) if !msg.empty?
+      puts(@opts)
       exit
     end
 
@@ -385,29 +408,31 @@ module Sprinkles::Opts
     end
 
     sig { params(argv: T::Array[String]).returns(T.attached_class) }
-    def self.parse(argv=ARGV)
+    def self.parse(argv = ARGV)
       # we're going to destructively modify this
       argv = argv.clone
 
       values = T::Hash[Symbol, T::Array[String]].new
-      parser = OptionParser.new do |opts|
-        @opts = T.let(opts, T.nilable(OptionParser))
-        opts.banner = "Usage: #{program_name} #{cmdline}"
-        opts.on('-h', '--help', 'Print this help') do
-          usage!
-        end
+      parser = OptionParser
+        .new do |opts|
+          @opts = T.let(opts, T.nilable(OptionParser))
+          opts.banner = "Usage: #{program_name} #{cmdline}"
+          opts.on("-h", "--help", "Print this help") do
+            usage!
+          end
 
-        fields.each do |field|
-          next if field.positional?
-          T.unsafe(opts).on(*field.optparse_args) do |v|
-            if field.repeated?
-              (values[field.name] ||= []) << v
-            else
-              values[field.name] = [v]
+          fields.each do |field|
+            next if field.positional?
+            T.unsafe(opts).on(*field.optparse_args) do |v|
+              if field.repeated?
+                (values[field.name] ||= []) << v
+              else
+                values[field.name] = [v]
+              end
             end
           end
         end
-      end.parse!(argv)
+        .parse!(argv)
 
       values.merge!(match_positional_fields(argv))
 

@@ -1,14 +1,14 @@
 # typed: true
 # frozen_string_literal: true
 
-require 'test_helper'
-require 'sprinkles/opts'
+require "test_helper"
+require "sprinkles/opts"
 
 module Sprinkles
   class GetOptTest < Minitest::Test
     extend T::Sig
 
-    sig {params(blk: T.proc.void).returns(String)}
+    sig { params(blk: T.proc.void).returns(String) }
     def capture_usage(&blk)
       out_buf = StringIO.new
       begin
@@ -17,6 +17,7 @@ module Sprinkles
       rescue SystemExit
         $stdout = STDOUT
       end
+
       help_text = out_buf.string
       return help_text
     end
@@ -24,51 +25,51 @@ module Sprinkles
     class SimpleOpt < Sprinkles::Opts::GetOpt
       sig { override.returns(String) }
       def self.program_name
-        'simple-opt'
+        "simple-opt"
       end
 
-      const :input, String, short: 'i', long: 'input', placeholder: 'QUUX'
-      const :verbose, T::Boolean, short: 'v', long: 'verbose', factory: -> {false}
+      const :input, String, short: "i", long: "input", placeholder: "QUUX"
+      const :verbose, T::Boolean, short: "v", long: "verbose", factory: -> { false }
     end
 
     def test_getopt_short
-      opts = SimpleOpt.parse(['-i', 'foo'])
-      assert_equal('foo', opts.input)
+      opts = SimpleOpt.parse(["-i", "foo"])
+      assert_equal("foo", opts.input)
     end
 
     def test_getopt_long
-      opts = SimpleOpt.parse(['--input=foo'])
-      assert_equal('foo', opts.input)
+      opts = SimpleOpt.parse(["--input=foo"])
+      assert_equal("foo", opts.input)
     end
 
     def test_getopt_flag_short
-      opts = SimpleOpt.parse(['-v', '--input=foo'])
+      opts = SimpleOpt.parse(["-v", "--input=foo"])
       assert_equal(true, opts.verbose)
 
-      opts = SimpleOpt.parse(['--input=foo'])
+      opts = SimpleOpt.parse(["--input=foo"])
       assert_equal(false, opts.verbose)
     end
 
     def test_getopt_flag_long
-      opts = SimpleOpt.parse(['--verbose', '--input=foo'])
+      opts = SimpleOpt.parse(["--verbose", "--input=foo"])
       assert_equal(true, opts.verbose)
 
-      opts = SimpleOpt.parse(['--input=foo'])
+      opts = SimpleOpt.parse(["--input=foo"])
       assert_equal(false, opts.verbose)
     end
 
     def test_getopt_usage
-      help_text = capture_usage { SimpleOpt.parse(['--help']) }
+      help_text = capture_usage { SimpleOpt.parse(["--help"]) }
 
-      assert(help_text.include?('Usage: simple-opt --input=QUUX [OPTS...]'))
-      assert(help_text.include?('-i, --input=QUUX'))
-      assert(help_text.include?('-v, --[no-]verbose'))
+      assert(help_text.include?("Usage: simple-opt --input=QUUX [OPTS...]"))
+      assert(help_text.include?("-i, --input=QUUX"))
+      assert(help_text.include?("-v, --[no-]verbose"))
     end
 
     class Positional < Sprinkles::Opts::GetOpt
       sig { override.returns(String) }
       def self.program_name
-        'positional'
+        "positional"
       end
 
       const :first, String
@@ -78,33 +79,33 @@ module Sprinkles
 
     def test_positional_params
       opts = Positional.parse(%w[one 2 three])
-      assert_equal('one', opts.first)
+      assert_equal("one", opts.first)
       assert_equal(2, opts.second)
       assert_equal(:three, opts.third)
 
       opts = Positional.parse(%w[one 2])
-      assert_equal('one', opts.first)
+      assert_equal("one", opts.first)
       assert_equal(2, opts.second)
       assert_nil(opts.third)
     end
 
     def test_positional_errors
       msg = capture_usage { Positional.parse(%w[one]) }
-      assert(msg.include?('Not enough arguments'))
-      assert(msg.include?('FIRST SECOND [THIRD]'))
+      assert(msg.include?("Not enough arguments"))
+      assert(msg.include?("FIRST SECOND [THIRD]"))
 
       msg = capture_usage { Positional.parse(%w[one 2 three four]) }
-      assert(msg.include?('Too many arguments'))
+      assert(msg.include?("Too many arguments"))
     end
 
     class ArrayOptions < Sprinkles::Opts::GetOpt
-      const :x, T::Array[String], short: 'x'
-      const :y, T::Array[Integer], short: 'y'
+      const :x, T::Array[String], short: "x"
+      const :y, T::Array[Integer], short: "y"
     end
 
     def test_array_options
       opts = ArrayOptions.parse(%w[-x one -x two])
-      assert_equal(['one', 'two'], opts.x)
+      assert_equal(["one", "two"], opts.x)
       assert_equal([], opts.y)
 
       opts = ArrayOptions.parse(%w[-y 2 -y 7])
@@ -112,7 +113,7 @@ module Sprinkles
       assert_equal([2, 7], opts.y)
 
       opts = ArrayOptions.parse(%w[-x this -y 22 -y 33 -x that])
-      assert_equal(['this', 'that'], opts.x)
+      assert_equal(["this", "that"], opts.x)
       assert_equal([22, 33], opts.y)
     end
 
@@ -123,19 +124,19 @@ module Sprinkles
 
     def test_array_positional_params
       opts = ArrayPositional.parse(%w[one])
-      assert_equal('one', opts.first)
+      assert_equal("one", opts.first)
       assert_equal([], opts.second)
 
       opts = ArrayPositional.parse(%w[one two])
-      assert_equal('one', opts.first)
+      assert_equal("one", opts.first)
       assert_equal([:two], opts.second)
 
       opts = ArrayPositional.parse(%w[one two three])
-      assert_equal('one', opts.first)
+      assert_equal("one", opts.first)
       assert_equal([:two, :three], opts.second)
 
       opts = ArrayPositional.parse(%w[one two three four five])
-      assert_equal('one', opts.first)
+      assert_equal("one", opts.first)
       assert_equal([:two, :three, :four, :five], opts.second)
     end
 
@@ -146,19 +147,19 @@ module Sprinkles
 
     def test_set_positional_params
       opts = SetPositional.parse(%w[one])
-      assert_equal('one', opts.first)
+      assert_equal("one", opts.first)
       assert_equal(Set[], opts.second)
 
       opts = SetPositional.parse(%w[one two])
-      assert_equal('one', opts.first)
+      assert_equal("one", opts.first)
       assert_equal(Set[:two], opts.second)
 
       opts = SetPositional.parse(%w[one two three])
-      assert_equal('one', opts.first)
+      assert_equal("one", opts.first)
       assert_equal(Set[:two, :three], opts.second)
 
       opts = SetPositional.parse(%w[one two three four five])
-      assert_equal('one', opts.first)
+      assert_equal("one", opts.first)
       assert_equal(Set[:two, :three, :four, :five], opts.second)
     end
 
@@ -169,9 +170,10 @@ module Sprinkles
           T.unsafe(self).const(:bar, String)
         end
       end
+
       msg = T.cast(msg, RuntimeError)
-      assert(msg.message.include?('`bar` is a mandatory positional field'))
-      assert(msg.message.include?('after the optional field(s) `foo`'))
+      assert(msg.message.include?("`bar` is a mandatory positional field"))
+      assert(msg.message.include?("after the optional field(s) `foo`"))
     end
 
     def test_only_one_trailing_positional
@@ -181,6 +183,7 @@ module Sprinkles
           T.unsafe(self).const(:a2, String)
         end
       end
+
       msg = T.cast(msg, RuntimeError)
       assert_match(/The positional parameter `a2` comes after the repeated parameter `a1`/, msg.message)
 
@@ -190,6 +193,7 @@ module Sprinkles
           T.unsafe(self).const(:s2, String)
         end
       end
+
       msg = T.cast(msg, RuntimeError)
       assert_match(/The positional parameter `s2` comes after the repeated parameter `s1`/, msg.message)
     end
@@ -201,53 +205,52 @@ module Sprinkles
           T.unsafe(self).const(:a2, T::Array[String])
         end
       end
+
       msg = T.cast(msg, RuntimeError)
       assert_match(/The repeated parameter `a2` comes after an optional parameter/, msg.message)
     end
 
-
     class RichTypes < Sprinkles::Opts::GetOpt
       sig { override.returns(String) }
       def self.program_name
-        'rich-types'
+        "rich-types"
       end
 
-      const :my_symbol, Symbol, short: 's', long: 'symbol'
-      const :my_integer, Integer, short: 'i', long: 'integer'
-      const :my_float, Float, short: 'f', long: 'float'
+      const :my_symbol, Symbol, short: "s", long: "symbol"
+      const :my_integer, Integer, short: "i", long: "integer"
+      const :my_float, Float, short: "f", long: "float"
     end
 
     def test_rich_types
-      opts = RichTypes.parse(['-s', 'foo', '-i', '52', '-f', '2.3'])
+      opts = RichTypes.parse(["-s", "foo", "-i", "52", "-f", "2.3"])
       assert_equal(:foo, opts.my_symbol)
       assert_equal(52, opts.my_integer)
       assert_equal(2.3, opts.my_float)
     end
 
-
     class Optional < Sprinkles::Opts::GetOpt
       sig { override.returns(String) }
       def self.program_name
-        'rich-types'
+        "rich-types"
       end
 
-      const :opt_string, T.nilable(String), short: 'a'
-      const :def_string, String, short: 'b', factory: -> { 'foo' }
+      const :opt_string, T.nilable(String), short: "a"
+      const :def_string, String, short: "b", factory: -> { "foo" }
 
-      const :opt_symbol, T.nilable(Symbol), short: 'c'
-      const :def_symbol, Symbol, short: 'd', factory: -> { :bar }
+      const :opt_symbol, T.nilable(Symbol), short: "c"
+      const :def_symbol, Symbol, short: "d", factory: -> { :bar }
 
-      const :opt_integer, T.nilable(Integer), short: 'e'
-      const :def_integer, Integer, short: 'f', factory: -> { 55 }
+      const :opt_integer, T.nilable(Integer), short: "e"
+      const :def_integer, Integer, short: "f", factory: -> { 55 }
 
-      const :def_bool, T::Boolean, short: 'g', factory: -> { true }
+      const :def_bool, T::Boolean, short: "g", factory: -> { true }
     end
 
     def test_nilable_with_nil
       opts = Optional.parse([])
 
       assert_nil(nil, opts.opt_string)
-      assert_equal('foo', opts.def_string)
+      assert_equal("foo", opts.def_string)
 
       assert_nil(opts.opt_symbol)
       assert_equal(:bar, opts.def_symbol)
@@ -261,8 +264,8 @@ module Sprinkles
     def test_nilable_with_values
       opts = Optional.parse(%w[-a one -b two -c three -d four -e 99 -f 100])
 
-      assert_equal('one', opts.opt_string)
-      assert_equal('two', opts.def_string)
+      assert_equal("one", opts.opt_string)
+      assert_equal("two", opts.def_string)
 
       assert_equal(:three, opts.opt_symbol)
       assert_equal(:four, opts.def_symbol)
@@ -273,21 +276,23 @@ module Sprinkles
 
     class MyEnum < T::Enum
       enums do
-        One = new('one')
-        Two = new('two')
+        One = new("one")
+        Two = new("two")
       end
     end
 
     class OptsWithEnum < Sprinkles::Opts::GetOpt
       sig { override.returns(String) }
-      def self.program_name; "opts-with-enum"; end
+      def self.program_name
+        "opts-with-enum"
+      end
 
-      const :value, MyEnum, short: 'v', long: "value"
+      const :value, MyEnum, short: "v", long: "value"
     end
 
     def test_usage_string_for_enums
-      help_text = capture_usage { OptsWithEnum.parse(['--help']) }
-      assert(help_text.include?('--value=<one|two>'))
+      help_text = capture_usage { OptsWithEnum.parse(["--help"]) }
+      assert(help_text.include?("--value=<one|two>"))
     end
 
     def test_enum_values
@@ -306,48 +311,52 @@ module Sprinkles
       msg = capture_usage do
         opts = OptsWithEnum.parse(%w[--value=seventeen])
       end
-      assert(msg.include?('key not found: "seventeen"'))
-    end
 
+      assert(msg.include?("key not found: \"seventeen\""))
+    end
 
     def test_disallow_leading_short_hyphens
       msg = assert_raises(RuntimeError) do
         Class.new(Sprinkles::Opts::GetOpt) do
-          T.unsafe(self).const(:foo, String, short: '-f')
+          T.unsafe(self).const(:foo, String, short: "-f")
         end
       end
+
       msg = T.cast(msg, RuntimeError)
-      assert(msg.message.include?('Do not start options with -'))
+      assert(msg.message.include?("Do not start options with -"))
     end
 
     def test_disallow_leading_long_hyphens
       msg = assert_raises(RuntimeError) do
         Class.new(Sprinkles::Opts::GetOpt) do
-          T.unsafe(self).const(:foo, String, long: '--foo')
+          T.unsafe(self).const(:foo, String, long: "--foo")
         end
       end
+
       msg = T.cast(msg, RuntimeError)
-      assert(msg.message.include?('Do not start options with -'))
+      assert(msg.message.include?("Do not start options with -"))
     end
 
     def test_disallow_help
       msg = assert_raises(RuntimeError) do
         Class.new(Sprinkles::Opts::GetOpt) do
-          T.unsafe(self).const(:foo, String, short: 'h')
+          T.unsafe(self).const(:foo, String, short: "h")
         end
       end
+
       msg = T.cast(msg, RuntimeError)
-      assert(msg.message.include?('The options `-h` and `--help` are reserved'))
+      assert(msg.message.include?("The options `-h` and `--help` are reserved"))
     end
 
     def test_disallow_bad_types
       msg = assert_raises(RuntimeError) do
         Class.new(Sprinkles::Opts::GetOpt) do
-          T.unsafe(self).const(:foo, Proc, long: 'foo')
+          T.unsafe(self).const(:foo, Proc, long: "foo")
         end
       end
+
       msg = T.cast(msg, RuntimeError)
-      assert_equal('`Proc` is not a valid parameter type', msg.message)
+      assert_equal("`Proc` is not a valid parameter type", msg.message)
     end
   end
 end
