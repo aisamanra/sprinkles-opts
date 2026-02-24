@@ -8,6 +8,21 @@ module Sprinkles; module Opts; end; end
 
 module Sprinkles::Opts
   class GetOpt
+    class ValidationError < Exception
+      extend T::Sig
+      sig { params(message: String, name: Symbol).void }
+      def initialize(message, name)
+        @name = name
+        super("In definition of #{name}: #{message}")
+      end
+
+      sig { returns(Symbol) }
+      attr_reader :name
+    end
+
+    class InternalError < Exception
+    end
+
     extend T::Sig
     extend T::Helpers
     abstract!
@@ -132,15 +147,22 @@ module Sprinkles::Opts
 
     sig { params(opt: Option).void }
     private_class_method def self.validate!(opt)
-      raise 'Do not start options with -' if opt.short&.start_with?('-')
-      raise 'Do not start options with -' if opt.long&.start_with?('-')
+      if opt.short&.start_with?('-')
+        raise ValidationError.new('Do not start options with -', opt.name)
+      end
+
+      if opt.long&.start_with?('-')
+        raise ValidationError.new('Do not start options with -', opt.name)
+      end
+
       if (opt.short == 'h') || (opt.long == 'help')
-        raise <<~RB
-          The options `-h` and `--help` are reserved by Sprinkles::Opts::GetOpt
-        RB
+        raise ValidationError.new(
+                "The options `-h` and `--help` are reserved by Sprinkles::Opts::GetOpt",
+                opt.name
+              )
       end
       if !valid_type?(opt.type)
-        raise "`#{opt.type}` is not a valid parameter type"
+        raise ValidationError.new("`#{opt.type}` is not a valid parameter type", opt.name)
       end
 
       # the invariant we want to keep is that all mandatory positional
@@ -152,14 +174,16 @@ module Sprinkles::Opts
       end
 
       if opt.positional? && @seen_repeated_positional
-        raise "The positional parameter `#{opt.name}` comes after the "\
-              "repeated parameter `#{@seen_repeated_positional.name}`"
+        raise ValidationError.new(
+         "The positional parameter `#{opt.name}` comes after the "\
+              "repeated parameter `#{@seen_repeated_positional.name}`", opt.name)
       end
 
       if opt.positional? && opt.repeated?
         if @seen_optional_positional
-          raise "The repeated parameter `#{opt.name}` comes after an "\
-                "optional parameter."
+          raise ValidationError.new(
+                  "The repeated parameter `#{opt.name}` comes after an "\
+                "optional parameter.", opt.name)
         end
 
         @seen_repeated_positional = T.let(opt, T.nilable(Option))
@@ -171,8 +195,12 @@ module Sprinkles::Opts
         # easy, we simply reject this case.
         prev = fields.select {|f| f.positional? && f.optional?}
         prev = prev.map {|f| "`#{f.name}`"}.to_a.join(", ")
-        raise "`#{opt.name}` is a mandatory positional field "\
-              "but it comes after the optional field(s) #{prev}"
+
+        raise ValidationError.new(
+                "`#{opt.name}` is a mandatory positional field "\
+                "but it comes after the optional field(s) #{prev}",
+                opt.name
+              )
       end
     end
 
@@ -204,7 +232,7 @@ module Sprinkles::Opts
         # `T.nilable`, but with a bit of work we maybe could support
         # other kinds of unions
         possible_types = type.types.to_set - [T::Utils.coerce(NilClass)]
-        raise 'TODO: generic union types' if possible_types.size > 1
+        raise InternalError.new('TODO: generic union types') if possible_types.size > 1
 
         convert_str(value, possible_types.first)
       elsif type.is_a?(Class) && type < T::Enum
@@ -218,7 +246,7 @@ module Sprinkles::Opts
       elsif type == Float
         value.to_f
       else
-        raise "Don't know how to convert a string to #{type}"
+        raise InternalError.new("Don't know how to convert a string to #{type}")
       end
     end
 
@@ -298,9 +326,11 @@ module Sprinkles::Opts
 
     sig { params(msg: String).void }
     private_class_method def self.usage!(msg='')
-      raise <<~RB if @opts.nil?
-        Internal error: tried to call `usage!` before building option parser!
-      RB
+      if @opts.nil?
+      raise InternalError.new(
+              "Internal error: tried to call `usage!` before building option parser!"
+            )
+      end
 
       puts msg if !msg.empty?
       puts @opts
@@ -369,7 +399,7 @@ module Sprinkles::Opts
 
         fields.each do |field|
           next if field.positional?
-          opts.on(*field.optparse_args) do |v|
+          T.unsafe(opts).on(*field.optparse_args) do |v|
             if field.repeated?
               (values[field.name] ||= []) << v
             else
