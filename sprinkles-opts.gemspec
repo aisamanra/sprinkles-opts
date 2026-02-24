@@ -28,7 +28,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = ['lib']
 
   spec.add_development_dependency 'bundler', '> 2'
-  spec.add_development_dependency 'minitest'
+  spec.add_development_dependency 'minitest', '< 6'
   spec.add_development_dependency 'rake'
 
   spec.add_development_dependency 'sorbet', '> 0.6'
