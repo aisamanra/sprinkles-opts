@@ -11,3 +11,4 @@ bin/tapioca
 sorbet/rbi
 sorbet/tapioca
 .ruby-version
+Gemfile.lock
