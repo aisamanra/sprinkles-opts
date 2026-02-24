@@ -156,6 +156,7 @@ module Sprinkles
       #     - Otherwise, it will raise an error.
       #
       # There are a few other special considerations for specific types:
+      #
       # - If a field has the type `T::Boolean` and a `long:` option, then it will
       #   also get a corresponding flag that starts with `--no-` which sets the
       #   field to `false`.
