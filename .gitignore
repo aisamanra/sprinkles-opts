@@ -7,3 +7,7 @@
 /spec/reports/
 /tmp/
 *~
+bin/tapioca
+sorbet/rbi
+sorbet/tapioca
+.ruby-version
