@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "optparse"
+require "set"
 require "sorbet-runtime"
 
 module Sprinkles
